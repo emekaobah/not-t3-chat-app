@@ -24,6 +24,13 @@ interface Props {
   submitSignal: number;
   onCardSubmit: (e: React.FormEvent) => void;
   onMessageSent: () => void;
+  onDelete?: () => void;
+  onMoveLeft?: () => void;
+  onMoveRight?: () => void;
+  onClearChat?: () => void;
+  onAddCard?: () => void;
+  index: number;
+  totalCards: number;
 }
 
 export function ModelCard({
@@ -34,6 +41,13 @@ export function ModelCard({
   submitSignal,
   onCardSubmit,
   onMessageSent,
+  onDelete,
+  onMoveLeft,
+  onMoveRight,
+  onClearChat,
+  onAddCard,
+  index,
+  totalCards,
 }: Props) {
   // Each card tracks its own selected model!
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
@@ -76,10 +90,21 @@ export function ModelCard({
   }, [submitSignal]);
 
   return (
-    <div className="h-full flex flex-col border rounded-lg w-full">
-      <CardHeader className="p-4 flex flex-row items-center justify-between">
+    <div
+      className="h-full flex flex-col border rounded-lg w-full min-w-[400px] max-w-[600px]"
+      style={{ minHeight: "100%" }}
+    >
+      <CardHeader className="p-4 flex flex-row items-center justify-between shrink-0">
         <ModelSelector value={selectedModel} onChange={setSelectedModel} />
-        <ModelConfig />
+        <ModelConfig
+          onDelete={onDelete}
+          onMoveLeft={onMoveLeft}
+          onMoveRight={onMoveRight}
+          onAddCard={onAddCard}
+          onClearChat={onClearChat}
+          index={index}
+          totalCards={totalCards}
+        />
       </CardHeader>
       <CardContent className="flex-1 overflow-y-auto">
         {messages.map((message, idx) => (

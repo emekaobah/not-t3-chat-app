@@ -20,6 +20,9 @@ export default function ChatPage() {
   // Shared prompt input
   const [sharedInput, setSharedInput] = useState("");
   const [submitSignal, setSubmitSignal] = useState(0);
+  const [cards, setCards] = useState(
+    [...Array(CARD_COUNT)].map((_, i) => ({ id: i }))
+  );
 
   // Group messages by model
   const messagesByModel = (messages as Message[]).reduce(
@@ -30,6 +33,26 @@ export default function ChatPage() {
     },
     {}
   );
+
+  const handleCardDelete = (index: number) => {
+    setCards(cards.filter((_, i) => i !== index));
+  };
+
+  const handleMoveCard = (index: number, direction: "left" | "right") => {
+    const newCards = [...cards];
+    const newIndex = direction === "left" ? index - 1 : index + 1;
+    if (newIndex >= 0 && newIndex < cards.length) {
+      [newCards[index], newCards[newIndex]] = [
+        newCards[newIndex],
+        newCards[index],
+      ];
+      setCards(newCards);
+    }
+  };
+
+  const handleAddCard = () => {
+    setCards([...cards, { id: cards.length }]);
+  };
 
   // Submit from any card triggers all
   const handleCardSubmit = (e: React.FormEvent) => {
@@ -46,22 +69,32 @@ export default function ChatPage() {
           <SidebarTrigger className="-ml-1" />
           <AppHeader />
         </header>
-        {/* TOP INPUT REMOVED! */}
         <div className="flex-1 p-4 overflow-hidden">
           {isLoading && <div>Loading messages...</div>}
           <div
-            className={`h-full grid auto-rows-fr gap-4 md:grid-cols-${CARD_COUNT}`}
+            className={`h-full grid auto-rows-fr gap-4 ${
+              cards.length === 1 ? "place-items-center" : ""
+            }`}
+            style={{
+              gridTemplateColumns: cards.length === 1 ? "1fr" : "1fr 1fr",
+            }}
           >
-            {[...Array(CARD_COUNT)].map((_, idx) => (
+            {cards.slice(0, 2).map((card, idx) => (
               <ModelCard
-                key={idx}
+                key={card.id}
                 conversationId={conversationId}
-                initialMessages={[]} // can pass [] or messagesByModel[model] if you want to persist per model
+                initialMessages={[]} // can pass messagesByModel[model] if needed
                 sharedInput={sharedInput}
                 onSharedInputChange={setSharedInput}
                 submitSignal={submitSignal}
                 onCardSubmit={handleCardSubmit}
                 onMessageSent={refetch}
+                onDelete={() => handleCardDelete(idx)}
+                onMoveLeft={() => handleMoveCard(idx, "left")}
+                onMoveRight={() => handleMoveCard(idx, "right")}
+                onAddCard={cards.length < 2 ? handleAddCard : undefined}
+                index={idx}
+                totalCards={cards.length}
               />
             ))}
           </div>
