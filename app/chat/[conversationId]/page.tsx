@@ -1,4 +1,5 @@
 "use client";
+import { useParams } from "next/navigation";
 import AppHeader from "@/components/app-header";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ModelCard } from "@/components/model-card";
@@ -7,21 +8,30 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { useMessages, Message } from "@/hooks/useMessages";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
-import { Button } from "@/components/ui/button";
-import { redirect } from "next/navigation";
-import Welcome from "@/components/welcome";
 
-const CARD_COUNT = 3; // or however many cards you want
+const CARD_COUNT = 2; // or any number of models/cards you want shown
 
-export default function Page() {
+export default function ChatPage() {
+  const { conversationId } = useParams<{ conversationId: string }>();
+  const { messages, isLoading, refetch } = useMessages(conversationId);
+
+  // Shared prompt input
   const [sharedInput, setSharedInput] = useState("");
   const [submitSignal, setSubmitSignal] = useState(0);
-  const [messagesByModel, setMessagesByModel] = useState({});
 
-  // This function will be called when any card submits
+  // Group messages by model
+  const messagesByModel = (messages as Message[]).reduce(
+    (acc: Record<string, Message[]>, msg: Message) => {
+      if (!acc[msg.model]) acc[msg.model] = [];
+      acc[msg.model].push(msg);
+      return acc;
+    },
+    {}
+  );
+
+  // Submit from any card triggers all
   const handleCardSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!sharedInput.trim()) return;
@@ -36,31 +46,25 @@ export default function Page() {
           <SidebarTrigger className="-ml-1" />
           <AppHeader />
         </header>
+        {/* TOP INPUT REMOVED! */}
         <div className="flex-1 p-4 overflow-hidden">
-          {/* <div
+          {isLoading && <div>Loading messages...</div>}
+          <div
             className={`h-full grid auto-rows-fr gap-4 md:grid-cols-${CARD_COUNT}`}
           >
             {[...Array(CARD_COUNT)].map((_, idx) => (
               <ModelCard
                 key={idx}
+                conversationId={conversationId}
+                initialMessages={[]} // can pass [] or messagesByModel[model] if you want to persist per model
                 sharedInput={sharedInput}
                 onSharedInputChange={setSharedInput}
                 submitSignal={submitSignal}
-                onSubmit={handleCardSubmit}
+                onCardSubmit={handleCardSubmit}
+                onMessageSent={refetch}
               />
             ))}
-          </div> */}
-
-          <SignedIn>
-            {/*
-          If you want SSR/Edge-side auto-redirect, 
-          use Next.js middleware or get the user on the server.
-          For most use cases, this client-side redirect is fine:
-        */}
-          </SignedIn>
-          <SignedOut>
-            <Welcome />
-          </SignedOut>
+          </div>
         </div>
       </SidebarInset>
     </SidebarProvider>
