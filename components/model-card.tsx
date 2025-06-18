@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useChat } from "@ai-sdk/react";
 import {
   Card,
@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 const DEFAULT_MODEL = "gpt-4.1-nano";
 
 interface Props {
+  model: string;
   conversationId: string;
   initialMessages: Message[];
   sharedInput: string;
@@ -34,6 +35,7 @@ interface Props {
 }
 
 export function ModelCard({
+  model,
   conversationId,
   initialMessages,
   sharedInput,
@@ -51,6 +53,9 @@ export function ModelCard({
 }: Props) {
   // Each card tracks its own selected model!
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
+  const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const sendMessage = useSendMessage();
 
@@ -89,6 +94,65 @@ export function ModelCard({
     // eslint-disable-next-line
   }, [submitSignal]);
 
+  // Auto-scroll to bottom when messages change or when streaming
+  const scrollToBottom = () => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "end",
+      });
+    }
+  };
+
+  // Immediate scroll without animation for faster response during streaming
+  const scrollToBottomImmediate = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop =
+        scrollContainerRef.current.scrollHeight;
+    }
+  };
+
+  // Check if user is near the bottom of the scroll container
+  const isNearBottom = () => {
+    if (!scrollContainerRef.current) return true;
+    const { scrollTop, scrollHeight, clientHeight } =
+      scrollContainerRef.current;
+    return scrollHeight - scrollTop - clientHeight < 100; // Within 100px of bottom
+  };
+
+  // Handle scroll events to detect if user manually scrolled up
+  const handleScroll = () => {
+    if (!isNearBottom()) {
+      setIsUserScrolledUp(true);
+    } else {
+      setIsUserScrolledUp(false);
+    }
+  };
+
+  // Scroll to bottom when messages update
+  useEffect(() => {
+    // Only auto-scroll if user hasn't manually scrolled up or if we're loading (streaming)
+    if (!isUserScrolledUp || isLoading) {
+      if (isLoading) {
+        scrollToBottomImmediate();
+      } else {
+        scrollToBottom();
+      }
+    }
+  }, [messages, isLoading, isUserScrolledUp]);
+
+  // Additional scroll trigger for streaming updates
+  useEffect(() => {
+    if (isLoading && !isUserScrolledUp) {
+      // Set up an interval to check for new content during streaming
+      const interval = setInterval(() => {
+        scrollToBottomImmediate();
+      }, 100);
+
+      return () => clearInterval(interval);
+    }
+  }, [isLoading, isUserScrolledUp]);
+
   return (
     <div
       className="h-full flex flex-col border rounded-lg w-full min-w-[400px] max-w-[600px]"
@@ -106,7 +170,11 @@ export function ModelCard({
           totalCards={totalCards}
         />
       </CardHeader>
-      <CardContent className="flex-1 overflow-y-auto">
+      <CardContent
+        className="flex-1 overflow-y-auto"
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+      >
         {messages.map((message, idx) => (
           <div
             key={message.id || idx}
@@ -125,6 +193,8 @@ export function ModelCard({
         {isLoading && (
           <div className="text-zinc-400">Streaming response...</div>
         )}
+        {/* Invisible element to scroll to */}
+        <div ref={messagesEndRef} />
       </CardContent>
       <CardFooter className="shrink-0 p-4">
         {/* No "Send" button; submit handled by parent signal */}

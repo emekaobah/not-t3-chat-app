@@ -11,18 +11,15 @@ import {
 import { useMessages, Message } from "@/hooks/useMessages";
 import { useState } from "react";
 
-const CARD_COUNT = 2; // or any number of models/cards you want shown
+const SUPPORTED_MODELS = ["gpt-4.1-nano", "gemini-2.0-flash"];
 
 export default function ChatPage() {
   const { conversationId } = useParams<{ conversationId: string }>();
   const { messages, isLoading, refetch } = useMessages(conversationId);
 
-  // Shared prompt input
+  // Shared prompt input state (keeps in sync, but not shown as a UI at the top)
   const [sharedInput, setSharedInput] = useState("");
   const [submitSignal, setSubmitSignal] = useState(0);
-  const [cards, setCards] = useState(
-    [...Array(CARD_COUNT)].map((_, i) => ({ id: i }))
-  );
 
   // Group messages by model
   const messagesByModel = (messages as Message[]).reduce(
@@ -34,27 +31,7 @@ export default function ChatPage() {
     {}
   );
 
-  const handleCardDelete = (index: number) => {
-    setCards(cards.filter((_, i) => i !== index));
-  };
-
-  const handleMoveCard = (index: number, direction: "left" | "right") => {
-    const newCards = [...cards];
-    const newIndex = direction === "left" ? index - 1 : index + 1;
-    if (newIndex >= 0 && newIndex < cards.length) {
-      [newCards[index], newCards[newIndex]] = [
-        newCards[newIndex],
-        newCards[index],
-      ];
-      setCards(newCards);
-    }
-  };
-
-  const handleAddCard = () => {
-    setCards([...cards, { id: cards.length }]);
-  };
-
-  // Submit from any card triggers all
+  // Submitting on any card triggers all cards to send the message
   const handleCardSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!sharedInput.trim()) return;
@@ -70,31 +47,22 @@ export default function ChatPage() {
           <AppHeader />
         </header>
         <div className="flex-1 p-4 overflow-hidden">
-          {isLoading && <div>Loading messages...</div>}
           <div
-            className={`h-full grid auto-rows-fr gap-4 ${
-              cards.length === 1 ? "place-items-center" : ""
-            }`}
-            style={{
-              gridTemplateColumns: cards.length === 1 ? "1fr" : "1fr 1fr",
-            }}
+            className={`h-full grid auto-rows-fr gap-4 md:grid-cols-${SUPPORTED_MODELS.length}`}
           >
-            {cards.slice(0, 2).map((card, idx) => (
+            {SUPPORTED_MODELS.map((model, idx) => (
               <ModelCard
-                key={card.id}
+                key={model}
+                model={model} // <-- Pass this!
                 conversationId={conversationId}
-                initialMessages={[]} // can pass messagesByModel[model] if needed
+                initialMessages={messagesByModel[model] ?? []}
                 sharedInput={sharedInput}
                 onSharedInputChange={setSharedInput}
                 submitSignal={submitSignal}
                 onCardSubmit={handleCardSubmit}
                 onMessageSent={refetch}
-                onDelete={() => handleCardDelete(idx)}
-                onMoveLeft={() => handleMoveCard(idx, "left")}
-                onMoveRight={() => handleMoveCard(idx, "right")}
-                onAddCard={cards.length < 2 ? handleAddCard : undefined}
                 index={idx}
-                totalCards={cards.length}
+                totalCards={SUPPORTED_MODELS.length}
               />
             ))}
           </div>

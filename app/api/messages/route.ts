@@ -9,6 +9,10 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const conversation_id = searchParams.get("conversation_id");
+
+  console.log("GET /api/messages - conversationId:", conversation_id);
+  console.log("GET /api/messages - userId:", userId);
+
   if (!conversation_id)
     return NextResponse.json({ error: "No conversation_id" }, { status: 400 });
 
@@ -20,6 +24,8 @@ export async function GET(req: NextRequest) {
     .eq("user_id", userId)
     .order("created_at", { ascending: true });
 
+  console.log("GET /api/messages - query result:", { data, error });
+
   if (error) return NextResponse.json({ error }, { status: 400 });
   return NextResponse.json(data);
 }
@@ -30,12 +36,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { conversation_id, model, role, content } = await req.json();
+  
+  console.log("POST /api/messages - request:", {
+    conversation_id,
+    model,
+    role,
+    content,
+    userId
+  });
 
   const { data, error } = await supabase
     .from("messages")
     .insert([{ conversation_id, model, role, content, user_id: userId }])
     .select()
     .single();
+
+  console.log("POST /api/messages - result:", { data, error });
 
   if (error) return NextResponse.json({ error }, { status: 400 });
   return NextResponse.json(data);
