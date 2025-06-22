@@ -19,22 +19,92 @@ import { Plus } from "lucide-react";
 import { Separator } from "./ui/separator";
 import { useUserConversations } from "@/hooks/useUserConversation";
 import { useGuestMessageLimiter } from "@/stores/guestMessageStore";
+import { useGuestConversation } from "@/stores/guestConversationStore";
+import { useConversationStore } from "@/stores/conversationStore";
+import { useCreateConversation } from "@/hooks/useCreateConversation";
+import { useRouter } from "next/navigation";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function AppSidebar(props: any) {
-  // Get all conversations for this user
-  const { conversations, isLoading } = useUserConversations();
+  // Use conversation store for real-time updates
+  const {
+    conversations,
+    isLoading,
+    titleStates,
+    addConversation,
+    refreshConversations,
+  } = useConversationStore();
+
   // Get the current conversationId from the URL
   const { conversationId } = useParams<{ conversationId: string }>();
   // Get guest message limiter for signed-out users
   const { remainingMessages, isLimitReached } = useGuestMessageLimiter();
+  const guestConversation = useGuestConversation();
+
+  // Add hooks for creating new conversations
+  const { createConversation } = useCreateConversation();
+  const router = useRouter();
+
+  // Initialize conversations on mount
+  React.useEffect(() => {
+    refreshConversations();
+  }, [refreshConversations]);
+
+  // Handle creating a new chat
+  const handleNewChat = async () => {
+    try {
+      // Create new conversation with "Untitled" title initially
+      const newConversation = await createConversation({ title: "Untitled" });
+      if (newConversation?.id) {
+        // Add to store immediately for real-time UI update
+        addConversation(newConversation);
+        // Navigate to the new conversation
+        router.push(`/chat/${newConversation.id}`);
+      }
+    } catch (error) {
+      console.error("Failed to create new conversation:", error);
+    }
+  };
+
+  // Helper function to get conversation title with loading states
+  const getConversationTitle = (conv: any) => {
+    const titleState = titleStates[conv.id];
+
+    // Show skeleton while generating
+    if (titleState?.isGenerating) {
+      return <Skeleton className="h-4 w-32" />;
+    }
+
+    // If we don't have a meaningful title yet
+    if (!conv.title || conv.title === "Untitled" || conv.title.trim() === "") {
+      // If we've generated but still don't have a title, show "New Chat"
+      if (titleState?.hasGenerated) {
+        return <span className="text-muted-foreground italic">New Chat</span>;
+      }
+      // Otherwise show "Untitled"
+      return <span className="text-muted-foreground italic">Untitled</span>;
+    }
+
+    // Show the actual title
+    return conv.title;
+  };
 
   // Debug logging for sidebar
   React.useEffect(() => {
-    console.log("🔧 Sidebar guest state:", {
+    console.log("🔧 Sidebar state:", {
+      conversations: conversations?.length || 0,
+      isLoading,
+      titleStates: Object.keys(titleStates).length,
       remainingMessages,
       isLimitReached,
     });
-  }, [remainingMessages, isLimitReached]);
+  }, [
+    conversations,
+    isLoading,
+    titleStates,
+    remainingMessages,
+    isLimitReached,
+  ]);
 
   return (
     <Sidebar {...props}>
@@ -42,11 +112,23 @@ export function AppSidebar(props: any) {
         <div className="p-2 space-y-4">
           <div className="mb-4 flex flex-row gap-2 items-center justify-between">
             <h1 className="font-bold">Not T3.chat Pro</h1>
-            <Link href={"/"}>
-              <Button size="sm" title="New Chat" variant="outline">
+            <SignedIn>
+              <Button
+                size="sm"
+                title="New Chat"
+                variant="outline"
+                onClick={handleNewChat}
+              >
                 <Plus />
               </Button>
-            </Link>
+            </SignedIn>
+            <SignedOut>
+              <Link href={"/"}>
+                <Button size="sm" title="Home" variant="outline">
+                  <Plus />
+                </Button>
+              </Link>
+            </SignedOut>
           </div>
         </div>
         <Separator className="mb-2" />
@@ -75,7 +157,7 @@ export function AppSidebar(props: any) {
                   >
                     <Link href={`/chat/${conv.id}`}>
                       <span className="truncate block max-w-[170px]">
-                        {conv.title || "Untitled"}
+                        {getConversationTitle(conv)}
                       </span>
                     </Link>
                   </SidebarMenuButton>

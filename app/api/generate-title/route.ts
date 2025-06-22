@@ -8,7 +8,12 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { messages } = body;
 
+    console.log("📝 Title generation request:", {
+      messagesCount: messages?.length,
+    });
+
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      console.log("❌ Invalid messages in request");
       return Response.json({ error: "No messages provided" }, { status: 400 });
     }
 
@@ -20,6 +25,8 @@ export async function POST(req: Request) {
     const conversationContext = contextMessages
       .map((msg) => `${msg.role}: ${msg.content}`)
       .join("\n");
+
+    console.log("🤖 Sending to AI for title generation");
 
     const titlePrompt = `Based on the following conversation, generate a short, descriptive title (3-6 words maximum) that captures the main topic or question being discussed. The title should be concise and clear.
 
@@ -36,6 +43,7 @@ Generate only the title, nothing else. Do not use quotes or special formatting.`
     });
 
     let title = result.text.trim();
+    console.log("🎯 Raw AI title:", title);
 
     // Clean up the title - remove quotes, excessive punctuation
     title = title.replace(/^["']|["']$/g, ""); // Remove surrounding quotes
@@ -44,6 +52,7 @@ Generate only the title, nothing else. Do not use quotes or special formatting.`
 
     // Fallback if title is too short or empty
     if (title.length < 3) {
+      console.log("⚠️ Title too short, using fallback");
       const firstUserMessage =
         messages.find((m) => m.role === "user")?.content || "";
       if (firstUserMessage) {
@@ -55,9 +64,10 @@ Generate only the title, nothing else. Do not use quotes or special formatting.`
       }
     }
 
+    console.log("✅ Final title:", title);
     return Response.json({ title });
   } catch (error) {
-    console.error("Error generating title:", error);
+    console.error("❌ Error generating title:", error);
     return Response.json(
       { error: "Failed to generate title" },
       { status: 500 }

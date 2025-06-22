@@ -11,6 +11,7 @@ import {
 import { useMessages, Message } from "@/hooks/useMessages";
 import { useGenerateTitle } from "@/hooks/useGenerateTitle";
 import { useConversation } from "@/hooks/useUserConversation";
+import { useConversationStore } from "@/stores/conversationStore";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
@@ -21,6 +22,14 @@ export default function ChatPage() {
   const { messages, isLoading, refetch } = useMessages(conversationId);
   const { conversation } = useConversation(conversationId);
   const { generateTitle, isGenerating: isTitleGenerating } = useGenerateTitle();
+
+  // Use conversation store for state management
+  const {
+    updateConversationTitle,
+    setTitleGenerating,
+    setTitleGenerated,
+    refreshConversations,
+  } = useConversationStore();
 
   // Shared prompt input state (keeps in sync, but not shown as a UI at the top)
   const [sharedInput, setSharedInput] = useState("");
@@ -35,6 +44,10 @@ export default function ChatPage() {
       "🎨 Starting title generation for conversation:",
       conversationId
     );
+
+    // Set generating state in store
+    setTitleGenerating(conversationId, true);
+
     try {
       const title = await generateTitle(messages);
       console.log("✅ Generated title:", title);
@@ -50,6 +63,12 @@ export default function ChatPage() {
 
       if (response.ok) {
         console.log("💾 Title saved to database");
+        // Update the store with the new title
+        updateConversationTitle(conversationId, title);
+        // Mark as generated
+        setTitleGenerated(conversationId, true);
+        // Refresh conversations to ensure sidebar is updated
+        await refreshConversations();
         toast.success("Chat title generated!");
       } else {
         throw new Error("Failed to save title");
@@ -57,6 +76,9 @@ export default function ChatPage() {
     } catch (error) {
       console.error("❌ Failed to generate title:", error);
       // Don't show error toast as this is a background operation
+    } finally {
+      // Clear generating state
+      setTitleGenerating(conversationId, false);
     }
   };
 
