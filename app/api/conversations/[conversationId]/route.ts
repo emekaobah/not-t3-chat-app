@@ -74,3 +74,54 @@ export async function PATCH(
 
   return NextResponse.json(data);
 }
+
+// DELETE: delete a conversation
+export async function DELETE(
+  req: NextRequest,
+  context: { params: Promise<{ conversationId: string }> }
+) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { conversationId } = await context.params;
+
+  // Verify the conversation belongs to the user
+  const { data: conversation, error: fetchError } = await supabase
+    .from("conversations")
+    .select("id")
+    .eq("id", conversationId)
+    .eq("user_id", userId)
+    .single();
+
+  if (fetchError || !conversation) {
+    return NextResponse.json(
+      { error: "Conversation not found" },
+      { status: 404 }
+    );
+  }
+
+  // Delete all messages in the conversation first
+  const { error: messagesError } = await supabase
+    .from("messages")
+    .delete()
+    .eq("conversation_id", conversationId);
+
+  if (messagesError) {
+    return NextResponse.json({ error: messagesError.message }, { status: 400 });
+  }
+
+  // Delete the conversation
+  const { error: deleteError } = await supabase
+    .from("conversations")
+    .delete()
+    .eq("id", conversationId)
+    .eq("user_id", userId);
+
+  if (deleteError) {
+    return NextResponse.json({ error: deleteError.message }, { status: 400 });
+  }
+
+  return NextResponse.json({ message: "Conversation deleted successfully" });
+}

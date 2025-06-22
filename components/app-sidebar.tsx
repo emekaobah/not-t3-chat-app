@@ -15,7 +15,7 @@ import {
 import { SearchForm } from "./search-form";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
 import { Button } from "./ui/button";
-import { Plus } from "lucide-react";
+import { Plus, MoreHorizontal, Edit2, Trash2 } from "lucide-react";
 import { Separator } from "./ui/separator";
 import { useUserConversations } from "@/hooks/useUserConversation";
 import { useGuestMessageLimiter } from "@/stores/guestMessageStore";
@@ -24,6 +24,22 @@ import { useConversationStore } from "@/stores/conversationStore";
 import { useCreateConversation } from "@/hooks/useCreateConversation";
 import { useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
 export function AppSidebar(props: any) {
   // Use conversation store for real-time updates
@@ -32,6 +48,8 @@ export function AppSidebar(props: any) {
     isLoading,
     titleStates,
     addConversation,
+    removeConversation,
+    updateConversationTitle,
     refreshConversations,
   } = useConversationStore();
 
@@ -44,6 +62,20 @@ export function AppSidebar(props: any) {
   // Add hooks for creating new conversations
   const { createConversation } = useCreateConversation();
   const router = useRouter();
+
+  // State for managing conversation actions
+  const [editingConversationId, setEditingConversationId] = React.useState<
+    string | null
+  >(null);
+  const [editingTitle, setEditingTitle] = React.useState("");
+  const [hoveredConversationId, setHoveredConversationId] = React.useState<
+    string | null
+  >(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false);
+  const [conversationToDelete, setConversationToDelete] = React.useState<{
+    id: string;
+    title: string;
+  } | null>(null);
 
   // Initialize conversations on mount
   React.useEffect(() => {
@@ -89,6 +121,94 @@ export function AppSidebar(props: any) {
     return conv.title;
   };
 
+  // Handle starting rename
+  const handleStartRename = (conv: any) => {
+    setEditingConversationId(conv.id);
+    setEditingTitle(conv.title || "");
+  };
+
+  // Handle saving renamed title
+  const handleSaveRename = async (conversationId: string) => {
+    if (!editingTitle.trim()) {
+      toast.error("Title cannot be empty");
+      return;
+    }
+
+    try {
+      // Update in database
+      const response = await fetch(`/api/conversations/${conversationId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ title: editingTitle.trim() }),
+      });
+
+      if (response.ok) {
+        // Update in store
+        updateConversationTitle(conversationId, editingTitle.trim());
+        toast.success("Conversation renamed!");
+      } else {
+        throw new Error("Failed to rename conversation");
+      }
+    } catch (error) {
+      console.error("Failed to rename conversation:", error);
+      toast.error("Failed to rename conversation");
+    } finally {
+      setEditingConversationId(null);
+      setEditingTitle("");
+    }
+  };
+
+  // Handle canceling rename
+  const handleCancelRename = () => {
+    setEditingConversationId(null);
+    setEditingTitle("");
+  }; // Handle deleting conversation
+  const handleDeleteConversation = (conv: { id: string; title: string }) => {
+    setConversationToDelete(conv);
+    setDeleteConfirmOpen(true);
+  };
+
+  // Handle confirming delete
+  const handleConfirmDelete = async () => {
+    if (!conversationToDelete) return;
+
+    try {
+      const response = await fetch(
+        `/api/conversations/${conversationToDelete.id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (response.ok) {
+        // Remove from store immediately
+        removeConversation(conversationToDelete.id);
+        toast.success("Conversation deleted!");
+
+        // If we're currently viewing the deleted conversation, redirect to home
+        if (conversationToDelete.id === conversationId) {
+          router.push("/");
+        }
+      } else {
+        throw new Error("Failed to delete conversation");
+      }
+    } catch (error) {
+      console.error("Failed to delete conversation:", error);
+      toast.error("Failed to delete conversation");
+    } finally {
+      setDeleteConfirmOpen(false);
+      setConversationToDelete(null);
+    }
+  };
+
+  // Handle canceling delete
+  const handleCancelDelete = () => {
+    setDeleteConfirmOpen(false);
+    setConversationToDelete(null);
+  };
+
   // Debug logging for sidebar
   React.useEffect(() => {
     console.log("🔧 Sidebar state:", {
@@ -105,6 +225,15 @@ export function AppSidebar(props: any) {
     remainingMessages,
     isLimitReached,
   ]);
+
+  // Handle hover with slight delay to prevent flickering
+  const handleMouseEnter = (convId: string) => {
+    setHoveredConversationId(convId);
+  };
+
+  const handleMouseLeave = () => {
+    setHoveredConversationId(null);
+  };
 
   return (
     <Sidebar {...props}>
@@ -150,17 +279,104 @@ export function AppSidebar(props: any) {
             {!isLoading &&
               Array.isArray(conversations) &&
               conversations.map((conv) => (
-                <SidebarMenuItem key={conv.id}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={conv.id === conversationId}
-                  >
-                    <Link href={`/chat/${conv.id}`}>
-                      <span className="truncate block max-w-[170px]">
-                        {getConversationTitle(conv)}
-                      </span>
-                    </Link>
-                  </SidebarMenuButton>
+                <SidebarMenuItem
+                  key={conv.id}
+                  onMouseEnter={() => handleMouseEnter(conv.id)}
+                  onMouseLeave={handleMouseLeave}
+                  className="group relative"
+                >
+                  {editingConversationId === conv.id ? (
+                    // Rename mode
+                    <div className="flex items-center gap-2 px-2 py-1">
+                      <Input
+                        value={editingTitle}
+                        onChange={(e) => setEditingTitle(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleSaveRename(conv.id);
+                          } else if (e.key === "Escape") {
+                            e.preventDefault();
+                            handleCancelRename();
+                          }
+                        }}
+                        onBlur={() => {
+                          // Only save if there's content, otherwise cancel
+                          if (editingTitle.trim()) {
+                            handleSaveRename(conv.id);
+                          } else {
+                            handleCancelRename();
+                          }
+                        }}
+                        autoFocus
+                        className="h-7 text-sm"
+                        placeholder="Enter conversation title..."
+                      />
+                    </div>
+                  ) : (
+                    // Normal mode - integrated dropdown inside the button
+                    <SidebarMenuButton
+                      asChild
+                      isActive={conv.id === conversationId}
+                      className="w-full justify-between group/item"
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <Link
+                          href={`/chat/${conv.id}`}
+                          className="flex-1 flex items-center min-w-0"
+                        >
+                          <span className="truncate block">
+                            {getConversationTitle(conv)}
+                          </span>
+                        </Link>
+
+                        {/* Dropdown menu - integrated inside the button */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`h-6 w-6 p-0 ml-2 opacity-0 group-hover/item:opacity-100 transition-opacity ${
+                                hoveredConversationId === conv.id
+                                  ? "opacity-100"
+                                  : ""
+                              }`}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStartRename(conv);
+                              }}
+                            >
+                              <Edit2 className="mr-2 h-4 w-4" />
+                              Rename
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteConversation({
+                                  id: conv.id,
+                                  title: conv.title || "Untitled",
+                                });
+                              }}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </SidebarMenuButton>
+                  )}
                 </SidebarMenuItem>
               ))}
           </SignedIn>
@@ -238,6 +454,36 @@ export function AppSidebar(props: any) {
         </div>
         <SidebarRail />
       </SidebarFooter>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Conversation</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{conversationToDelete?.title}"?
+              This action cannot be undone and will permanently remove all
+              messages in this conversation.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={handleCancelDelete}
+              className="w-full sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              className="w-full sm:w-auto"
+            >
+              Delete Conversation
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Sidebar>
   );
 }

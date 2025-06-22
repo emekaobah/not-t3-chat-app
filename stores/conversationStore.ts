@@ -24,6 +24,7 @@ interface ConversationStore {
   setConversations: (conversations: Conversation[]) => void;
   setLoading: (loading: boolean) => void;
   addConversation: (conversation: Conversation) => void;
+  removeConversation: (conversationId: string) => void;
   updateConversationTitle: (conversationId: string, title: string) => void;
   setTitleGenerating: (conversationId: string, isGenerating: boolean) => void;
   setTitleGenerated: (conversationId: string, hasGenerated: boolean) => void;
@@ -44,6 +45,14 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
   addConversation: (conversation) => {
     const { conversations } = get();
     set({ conversations: [conversation, ...conversations] });
+  },
+
+  removeConversation: (conversationId) => {
+    const { conversations } = get();
+    const updatedConversations = conversations.filter(
+      (conv) => conv.id !== conversationId
+    );
+    set({ conversations: updatedConversations });
   },
 
   updateConversationTitle: (conversationId, title) => {
