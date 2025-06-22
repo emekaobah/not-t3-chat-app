@@ -13,6 +13,7 @@ import ModelConfig from "./model-config";
 import { useSendMessage } from "@/hooks/useSendMessage";
 import { Message } from "@/hooks/useMessages";
 import { Button } from "@/components/ui/button";
+import { useGuestConversation } from "@/stores/guestConversationStore";
 
 const DEFAULT_MODEL = "gpt-4.1-nano";
 
@@ -32,6 +33,7 @@ interface Props {
   onAddCard?: () => void;
   index: number;
   totalCards: number;
+  isGuestMode?: boolean; // New prop to indicate guest mode
 }
 
 export function ModelCard({
@@ -50,6 +52,7 @@ export function ModelCard({
   onAddCard,
   index,
   totalCards,
+  isGuestMode = false, // Default to false for signed-in users
 }: Props) {
   // Each card tracks its own selected model!
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
@@ -58,12 +61,25 @@ export function ModelCard({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const sendMessage = useSendMessage();
+  const guestConversation = useGuestConversation();
 
   const { messages, append, isLoading } = useChat({
     api: "/api/chat",
     initialMessages,
     onFinish: async (msg) => {
       if (msg.role === "assistant") {
+        // Add assistant message to guest conversation store if in guest mode
+        if (isGuestMode) {
+          guestConversation.addMessage({
+            id: `guest-${Date.now()}-${Math.random()}`,
+            conversation_id: "guest",
+            role: "assistant",
+            content: msg.content,
+            model: selectedModel,
+            created_at: new Date().toISOString(),
+          });
+        }
+
         await sendMessage({
           conversation_id: conversationId,
           model: selectedModel,
@@ -78,6 +94,20 @@ export function ModelCard({
   // On submitSignal, send sharedInput to THIS card's selected model
   useEffect(() => {
     if (submitSignal > 0 && sharedInput.trim()) {
+      const userMessage: Message = {
+        id: `guest-user-${Date.now()}-${Math.random()}`,
+        conversation_id: isGuestMode ? "guest" : conversationId,
+        role: "user",
+        content: sharedInput,
+        model: selectedModel,
+        created_at: new Date().toISOString(),
+      };
+
+      // Add user message to guest conversation store if in guest mode
+      if (isGuestMode) {
+        guestConversation.addMessage(userMessage);
+      }
+
       sendMessage({
         conversation_id: conversationId,
         model: selectedModel,

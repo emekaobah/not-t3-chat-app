@@ -25,3 +25,30 @@ export function useUserConversations() {
 
   return { conversations, isLoading, refetch: fetchConversations };
 }
+
+export function useConversation(conversationId: string) {
+  const [conversation, setConversation] = useState<Conversation | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const fetchConversation = async () => {
+    if (!conversationId) return;
+    setIsLoading(true);
+    try {
+      const res = await fetch(`/api/conversations/${conversationId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setConversation(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch conversation:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchConversation();
+  }, [conversationId]);
+
+  return { conversation, isLoading, refetch: fetchConversation };
+}
