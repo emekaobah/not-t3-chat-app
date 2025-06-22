@@ -17,6 +17,7 @@ import { useGuestConversation } from "@/stores/guestConversationStore";
 import { RestoreChatModal, MessageLimitModal } from "@/components/chat-modals";
 import { useSendMessage } from "@/hooks/useSendMessage";
 import { useGenerateTitle } from "@/hooks/useGenerateTitle";
+import { useConversationStore } from "@/stores/conversationStore";
 import { toast } from "sonner";
 
 const SUPPORTED_MODELS = ["gpt-4.1-nano", "gemini-2.0-flash"];
@@ -27,6 +28,9 @@ export default function Page() {
   const { createConversation } = useCreateConversation();
   const sendMessage = useSendMessage();
   const { generateTitle, isGenerating: isTitleGenerating } = useGenerateTitle();
+
+  // Conversation store for checking existing conversations
+  const { conversations, refreshConversations } = useConversationStore();
 
   // Guest message limiting
   const {
@@ -70,33 +74,82 @@ export default function Page() {
     }
   }, [isSignedIn, resetOnSignIn, forceReinitialize]);
 
+  // State to prevent auto-redirect after manual navigation to home
+  const [preventAutoRedirect, setPreventAutoRedirect] = useState(false);
+
+  // Check if user manually navigated to home page (e.g., after deleting a conversation)
+  useEffect(() => {
+    // Check sessionStorage for deletion flag
+    const deleteFlag = sessionStorage.getItem("just-deleted-conversation");
+    if (deleteFlag) {
+      console.log(
+        "🗑️ User just deleted a conversation, preventing auto-redirect"
+      );
+      setPreventAutoRedirect(true);
+      // Clean up the flag
+      sessionStorage.removeItem("just-deleted-conversation");
+    }
+  }, []);
+
+  // Initialize conversations when user signs in
+  useEffect(() => {
+    if (isSignedIn) {
+      console.log("👤 User signed in, refreshing conversations");
+      refreshConversations();
+    }
+  }, [isSignedIn, refreshConversations]);
+
   // Redirect signed-in users to create a new conversation if they land on home page
-  // BUT only if there's no guest conversation to restore
+  // BUT only if there's no guest conversation to restore AND no existing conversations
+  // AND they didn't manually navigate here (e.g., after deleting a conversation)
   useEffect(() => {
     // Only auto-redirect if user is signed in AND there's no guest conversation to restore
+    // AND it's their first time AND they didn't manually navigate here
     if (
       isSignedIn &&
       !guestConversation.hasActiveConversation &&
-      !hasShownRestoreModal
+      !hasShownRestoreModal &&
+      !preventAutoRedirect &&
+      conversations // Make sure conversations have been loaded
     ) {
-      console.log("🚀 Auto-redirecting signed-in user to new conversation");
-      // If signed-in user lands on home page, redirect to create new conversation
-      const createNewConversation = async () => {
-        const newConversation = await createConversation({ title: "Untitled" });
-        if (newConversation?.id) {
-          router.push(`/chat/${newConversation.id}`);
-        }
-      };
-      createNewConversation();
+      if (conversations.length > 0) {
+        console.log(
+          "🔄 User has existing conversations, redirecting to most recent"
+        );
+        // User has existing conversations, redirect to the most recent one
+        const mostRecent = conversations[0]; // Assuming conversations are sorted by most recent
+        router.push(`/chat/${mostRecent.id}`);
+      } else {
+        console.log(
+          "🚀 New user with no conversations, creating first conversation"
+        );
+        // No existing conversations, create a new one (first-time user experience)
+        // Only if this is truly a first-time user (not someone who just deleted all their conversations)
+        const createFirstConversation = async () => {
+          const newConversation = await createConversation({
+            title: "Untitled",
+          });
+          if (newConversation?.id) {
+            router.push(`/chat/${newConversation.id}`);
+          }
+        };
+        createFirstConversation();
+      }
     } else if (isSignedIn && guestConversation.hasActiveConversation) {
       console.log(
         "🔄 Signed-in user has guest conversation - waiting for restore modal"
+      );
+    } else if (preventAutoRedirect) {
+      console.log(
+        "🚫 Auto-redirect prevented - user manually navigated to home"
       );
     }
   }, [
     isSignedIn,
     guestConversation.hasActiveConversation,
     hasShownRestoreModal,
+    preventAutoRedirect,
+    conversations, // Use the conversations from the store
     createConversation,
     router,
   ]);

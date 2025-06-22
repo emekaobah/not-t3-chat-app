@@ -76,6 +76,8 @@ export function AppSidebar(props: any) {
     id: string;
     title: string;
   } | null>(null);
+  const [isDeletingConversation, setIsDeletingConversation] =
+    React.useState(false);
 
   // Initialize conversations on mount
   React.useEffect(() => {
@@ -172,7 +174,9 @@ export function AppSidebar(props: any) {
 
   // Handle confirming delete
   const handleConfirmDelete = async () => {
-    if (!conversationToDelete) return;
+    if (!conversationToDelete || isDeletingConversation) return;
+
+    setIsDeletingConversation(true);
 
     try {
       console.log(
@@ -195,6 +199,8 @@ export function AppSidebar(props: any) {
 
         // If we're currently viewing the deleted conversation, redirect to home
         if (conversationToDelete.id === conversationId) {
+          // Set flag to prevent auto-redirect after deletion
+          sessionStorage.setItem("just-deleted-conversation", "true");
           router.push("/");
         }
       } else {
@@ -216,6 +222,7 @@ export function AppSidebar(props: any) {
       console.error("❌ Failed to delete conversation:", error);
       toast.error("Failed to delete conversation");
     } finally {
+      setIsDeletingConversation(false);
       setDeleteConfirmOpen(false);
       setConversationToDelete(null);
     }
@@ -225,6 +232,7 @@ export function AppSidebar(props: any) {
   const handleCancelDelete = () => {
     setDeleteConfirmOpen(false);
     setConversationToDelete(null);
+    setIsDeletingConversation(false);
   };
 
   // Debug logging for sidebar
@@ -489,6 +497,7 @@ export function AppSidebar(props: any) {
               variant="outline"
               onClick={handleCancelDelete}
               className="w-full sm:w-auto"
+              disabled={isDeletingConversation}
             >
               Cancel
             </Button>
@@ -496,8 +505,9 @@ export function AppSidebar(props: any) {
               variant="destructive"
               onClick={handleConfirmDelete}
               className="w-full sm:w-auto"
+              disabled={isDeletingConversation}
             >
-              Delete Conversation
+              {isDeletingConversation ? "Deleting..." : "Delete Conversation"}
             </Button>
           </DialogFooter>
         </DialogContent>
