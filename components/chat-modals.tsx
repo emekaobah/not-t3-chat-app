@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { SignInButton } from "@clerk/nextjs";
+import { Loader2 } from "lucide-react";
 
 interface RestoreChatModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ interface RestoreChatModalProps {
   messageCount: number;
   onContinue: () => void;
   onStartFresh: () => void;
+  isRestoring?: boolean;
 }
 
 export const RestoreChatModal = ({
@@ -24,27 +26,36 @@ export const RestoreChatModal = ({
   messageCount,
   onContinue,
   onStartFresh,
+  isRestoring = false,
 }: RestoreChatModalProps) => {
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={isRestoring ? undefined : onClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Continue Previous Conversation?</DialogTitle>
           <DialogDescription>
-            You have {messageCount} messages from your previous session. Would
-            you like to save and continue this conversation?
+            {isRestoring
+              ? "Restoring your previous conversation..."
+              : `You have ${messageCount} messages from your previous session. Would
+              you like to save and continue this conversation?`}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="flex-col sm:flex-row gap-2">
           <Button
             variant="outline"
             onClick={onStartFresh}
+            disabled={isRestoring}
             className="w-full sm:w-auto"
           >
             Start Fresh
           </Button>
-          <Button onClick={onContinue} className="w-full sm:w-auto">
-            Continue & Save
+          <Button
+            onClick={onContinue}
+            disabled={isRestoring}
+            className="w-full sm:w-auto"
+          >
+            {isRestoring && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isRestoring ? "Restoring..." : "Continue & Save"}
           </Button>
         </DialogFooter>
       </DialogContent>

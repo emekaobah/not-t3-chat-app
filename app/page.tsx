@@ -47,6 +47,7 @@ export default function Page() {
   const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [showLimitModal, setShowLimitModal] = useState(false);
   const [hasShownRestoreModal, setHasShownRestoreModal] = useState(false);
+  const [isRestoringConversation, setIsRestoringConversation] = useState(false);
 
   // Shared input state for guest users
   const [sharedInput, setSharedInput] = useState("");
@@ -70,8 +71,15 @@ export default function Page() {
   }, [isSignedIn, resetOnSignIn, forceReinitialize]);
 
   // Redirect signed-in users to create a new conversation if they land on home page
+  // BUT only if there's no guest conversation to restore
   useEffect(() => {
-    if (isSignedIn && !guestConversation.hasActiveConversation) {
+    // Only auto-redirect if user is signed in AND there's no guest conversation to restore
+    if (
+      isSignedIn &&
+      !guestConversation.hasActiveConversation &&
+      !hasShownRestoreModal
+    ) {
+      console.log("🚀 Auto-redirecting signed-in user to new conversation");
       // If signed-in user lands on home page, redirect to create new conversation
       const createNewConversation = async () => {
         const newConversation = await createConversation({ title: "Untitled" });
@@ -80,10 +88,15 @@ export default function Page() {
         }
       };
       createNewConversation();
+    } else if (isSignedIn && guestConversation.hasActiveConversation) {
+      console.log(
+        "🔄 Signed-in user has guest conversation - waiting for restore modal"
+      );
     }
   }, [
     isSignedIn,
     guestConversation.hasActiveConversation,
+    hasShownRestoreModal,
     createConversation,
     router,
   ]);
@@ -188,9 +201,20 @@ export default function Page() {
 
   // Restoration modal handlers
   const handleContinueConversation = async () => {
-    const conversationData = guestConversation.getConversationData();
-    if (!conversationData) return;
+    // Prevent double-clicking
+    if (isRestoringConversation) {
+      console.log("🚫 Already restoring conversation, ignoring click");
+      return;
+    }
 
+    const conversationData = guestConversation.getConversationData();
+    if (!conversationData) {
+      console.log("❌ No conversation data found");
+      return;
+    }
+
+    console.log("🔄 Starting conversation restoration...");
+    setIsRestoringConversation(true);
     guestConversation.setRestoring(true);
 
     try {
@@ -198,7 +222,9 @@ export default function Page() {
       let title = "";
       if (conversationData.messages.length > 0) {
         try {
+          console.log("🎨 Generating title for restored conversation...");
           title = await generateTitle(conversationData.messages);
+          console.log("✅ Generated title:", title);
         } catch (error) {
           console.error(
             "Failed to generate title for restored conversation:",
@@ -209,9 +235,11 @@ export default function Page() {
       }
 
       // Create new conversation with generated title
+      console.log("📝 Creating new conversation...");
       const newConversation = await createConversation({ title });
 
       if (newConversation?.id) {
+        console.log("💾 Saving restored messages to database...");
         // Save all restored messages to the database
         for (const message of conversationData.messages) {
           await sendMessage({
@@ -228,25 +256,30 @@ export default function Page() {
         // Clear guest conversation and close modal
         guestConversation.clearConversation();
         setShowRestoreModal(false);
-        guestConversation.setRestoring(false);
 
+        console.log("🎉 Conversation restoration complete, navigating...");
         // Navigate to the new conversation page
         router.push(`/chat/${newConversation.id}`);
 
         toast.success("Previous conversation restored and saved!");
       }
     } catch (error) {
-      console.error("Failed to restore conversation:", error);
+      console.error("❌ Failed to restore conversation:", error);
       toast.error("Failed to restore conversation. Starting fresh.");
-      guestConversation.setRestoring(false);
       handleStartFresh();
+    } finally {
+      // Always clear loading states
+      setIsRestoringConversation(false);
+      guestConversation.setRestoring(false);
     }
   };
 
   const handleStartFresh = () => {
+    console.log("🧹 Starting fresh conversation");
     // Clear guest conversation
     guestConversation.clearConversation();
     setShowRestoreModal(false);
+    setIsRestoringConversation(false);
     // Component already starts with fresh state
   };
 
@@ -343,6 +376,7 @@ export default function Page() {
           messageCount={guestConversation.messages.length}
           onContinue={handleContinueConversation}
           onStartFresh={handleStartFresh}
+          isRestoring={isRestoringConversation}
         />
 
         <MessageLimitModal
@@ -367,6 +401,7 @@ export default function Page() {
               <div>
                 Title Gen: {isTitleGenerating ? "Generating..." : "Idle"}
               </div>
+              <div>Restoring: {isRestoringConversation ? "Yes" : "No"}</div>
               <div className="space-x-2">
                 <button
                   onClick={() => clearAllStorage()}
