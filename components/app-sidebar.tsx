@@ -31,7 +31,7 @@ export function AppSidebar(props: any) {
         <div className="p-2 space-y-4">
           <div className="mb-4 flex flex-row gap-2 items-center justify-between">
             <h1 className="font-bold">Not T3.chat Pro</h1>
-            <Link href={"/chat/new"}>
+            <Link href={"/"}>
               <Button size="sm" title="New Chat" variant="outline">
                 <Plus />
               </Button>
@@ -39,7 +39,9 @@ export function AppSidebar(props: any) {
           </div>
         </div>
         <Separator className="mb-2" />
-        <SearchForm />
+        <SignedIn>
+          <SearchForm />
+        </SignedIn>
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
@@ -70,11 +72,40 @@ export function AppSidebar(props: any) {
               ))}
           </SignedIn>
           <SignedOut>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <SignInButton />
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+            <div className="p-2 space-y-4">
+              <div className="mb-4">
+                <h2 className="font-semibold text-sm">✨ Features</h2>
+              </div>
+              <div className="space-y-3 text-xs text-muted-foreground">
+                <div className="flex items-start gap-2">
+                  <span className="text-green-500">•</span>
+                  <span>Compare AI models side-by-side</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-blue-500">•</span>
+                  <span>GPT-4, Gemini 2.0 Flash support</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-purple-500">•</span>
+                  <span>Save & revisit chat history</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-orange-500">•</span>
+                  <span>Modern dark/light theme</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-pink-500">•</span>
+                  <span>Secure & private</span>
+                </div>
+              </div>
+              <div className="pt-4 border-t">
+                <SignInButton>
+                  <Button size="sm" className="w-full">
+                    Sign in to Save Chats
+                  </Button>
+                </SignInButton>
+              </div>
+            </div>
           </SignedOut>
         </SidebarMenu>
       </SidebarContent>

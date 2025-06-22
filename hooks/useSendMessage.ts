@@ -10,6 +10,11 @@ export function useSendMessage() {
     role: string;
     content: string;
   }) => {
+    // Skip API calls for guest users
+    if (conversation_id === "guest" || conversation_id === "temp") {
+      return { message: "Guest message - not persisted" };
+    }
+
     const res = await fetch("/api/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
