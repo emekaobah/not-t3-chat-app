@@ -5,14 +5,14 @@ import { auth } from "@clerk/nextjs/server";
 // GET: get a specific conversation
 export async function GET(
   req: NextRequest,
-  context: { params: Promise<{ conversationId: string }> }
+  { params }: { params: Promise<{ conversationId: string }> }
 ) {
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { conversationId } = await context.params;
+  const { conversationId } = await params;
 
   const { data: conversation, error } = await supabase
     .from("conversations")
@@ -34,14 +34,14 @@ export async function GET(
 // PATCH: update conversation title
 export async function PATCH(
   req: NextRequest,
-  context: { params: Promise<{ conversationId: string }> }
+  { params }: { params: Promise<{ conversationId: string }> }
 ) {
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { conversationId } = await context.params;
+  const { conversationId } = await params;
   const { title } = await req.json();
 
   // Verify the conversation belongs to the user
@@ -78,14 +78,21 @@ export async function PATCH(
 // DELETE: delete a conversation
 export async function DELETE(
   req: NextRequest,
-  context: { params: Promise<{ conversationId: string }> }
+  { params }: { params: Promise<{ conversationId: string }> }
 ) {
   const { userId } = await auth();
   if (!userId) {
+    console.log("❌ DELETE: Unauthorized - no userId");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { conversationId } = await context.params;
+  const { conversationId } = await params;
+  console.log(
+    "🗑️ DELETE: Attempting to delete conversation:",
+    conversationId,
+    "for user:",
+    userId
+  );
 
   // Verify the conversation belongs to the user
   const { data: conversation, error: fetchError } = await supabase
@@ -96,11 +103,17 @@ export async function DELETE(
     .single();
 
   if (fetchError || !conversation) {
+    console.log(
+      "❌ DELETE: Conversation not found or doesn't belong to user:",
+      fetchError?.message
+    );
     return NextResponse.json(
       { error: "Conversation not found" },
       { status: 404 }
     );
   }
+
+  console.log("✅ DELETE: Conversation verified, proceeding with deletion");
 
   // Delete all messages in the conversation first
   const { error: messagesError } = await supabase
@@ -109,8 +122,11 @@ export async function DELETE(
     .eq("conversation_id", conversationId);
 
   if (messagesError) {
+    console.log("❌ DELETE: Failed to delete messages:", messagesError.message);
     return NextResponse.json({ error: messagesError.message }, { status: 400 });
   }
+
+  console.log("✅ DELETE: Messages deleted successfully");
 
   // Delete the conversation
   const { error: deleteError } = await supabase
@@ -120,8 +136,13 @@ export async function DELETE(
     .eq("user_id", userId);
 
   if (deleteError) {
+    console.log(
+      "❌ DELETE: Failed to delete conversation:",
+      deleteError.message
+    );
     return NextResponse.json({ error: deleteError.message }, { status: 400 });
   }
 
+  console.log("✅ DELETE: Conversation deleted successfully");
   return NextResponse.json({ message: "Conversation deleted successfully" });
 }

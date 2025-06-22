@@ -175,12 +175,18 @@ export function AppSidebar(props: any) {
     if (!conversationToDelete) return;
 
     try {
+      console.log(
+        "🗑️ Attempting to delete conversation:",
+        conversationToDelete.id
+      );
       const response = await fetch(
         `/api/conversations/${conversationToDelete.id}`,
         {
           method: "DELETE",
         }
       );
+
+      console.log("📡 Delete response status:", response.status);
 
       if (response.ok) {
         // Remove from store immediately
@@ -192,10 +198,22 @@ export function AppSidebar(props: any) {
           router.push("/");
         }
       } else {
-        throw new Error("Failed to delete conversation");
+        // Get the error details from response
+        const errorData = await response.json().catch(() => ({}));
+        console.error(
+          "❌ Delete failed with status:",
+          response.status,
+          "Error:",
+          errorData
+        );
+        throw new Error(
+          `Failed to delete conversation: ${response.status} ${
+            errorData.error || ""
+          }`
+        );
       }
     } catch (error) {
-      console.error("Failed to delete conversation:", error);
+      console.error("❌ Failed to delete conversation:", error);
       toast.error("Failed to delete conversation");
     } finally {
       setDeleteConfirmOpen(false);
