@@ -13,6 +13,7 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import { SearchForm } from "./search-form";
+import { SearchModal } from "./search-modal";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
 import { Button } from "./ui/button";
 import { Plus, MoreHorizontal, Edit2, Trash2 } from "lucide-react";
@@ -78,11 +79,25 @@ export function AppSidebar(props: any) {
   } | null>(null);
   const [isDeletingConversation, setIsDeletingConversation] =
     React.useState(false);
+  const [searchModalOpen, setSearchModalOpen] = React.useState(false);
 
   // Initialize conversations on mount
   React.useEffect(() => {
     refreshConversations();
   }, [refreshConversations]);
+
+  // Keyboard shortcut for search (Cmd+K / Ctrl+K)
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchModalOpen(true);
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Handle creating a new chat
   const handleNewChat = async () => {
@@ -288,7 +303,7 @@ export function AppSidebar(props: any) {
         </div>
         <Separator className="mb-2" />
         <SignedIn>
-          <SearchForm />
+          <SearchForm onSearchClick={() => setSearchModalOpen(true)} />
         </SignedIn>
       </SidebarHeader>
       <SidebarContent>
@@ -512,6 +527,9 @@ export function AppSidebar(props: any) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Search Modal */}
+      <SearchModal open={searchModalOpen} onOpenChange={setSearchModalOpen} />
     </Sidebar>
   );
 }
