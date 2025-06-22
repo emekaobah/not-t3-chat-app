@@ -18,12 +18,23 @@ import { Button } from "./ui/button";
 import { Plus } from "lucide-react";
 import { Separator } from "./ui/separator";
 import { useUserConversations } from "@/hooks/useUserConversation";
+import { useGuestMessageLimiter } from "@/stores/guestMessageStore";
 
 export function AppSidebar(props: any) {
   // Get all conversations for this user
   const { conversations, isLoading } = useUserConversations();
   // Get the current conversationId from the URL
   const { conversationId } = useParams<{ conversationId: string }>();
+  // Get guest message limiter for signed-out users
+  const { remainingMessages, isLimitReached } = useGuestMessageLimiter();
+
+  // Debug logging for sidebar
+  React.useEffect(() => {
+    console.log("🔧 Sidebar guest state:", {
+      remainingMessages,
+      isLimitReached,
+    });
+  }, [remainingMessages, isLimitReached]);
 
   return (
     <Sidebar {...props}>
@@ -100,10 +111,37 @@ export function AppSidebar(props: any) {
               </div>
               <div className="pt-4 border-t">
                 <SignInButton>
-                  <Button size="sm" className="w-full">
+                  <Button
+                    size="sm"
+                    className="w-full"
+                    onClick={() => {
+                      // Save temporary chat before sign-in
+                      if (
+                        typeof window !== "undefined" &&
+                        (window as any).saveTemporaryChatForRestore
+                      ) {
+                        (window as any).saveTemporaryChatForRestore();
+                      }
+                    }}
+                  >
                     Sign in to Save Chats
                   </Button>
                 </SignInButton>
+              </div>
+
+              {/* Message counter for guests */}
+              <div className="pt-2 border-t mt-2">
+                <div className="text-xs text-center text-muted-foreground">
+                  {remainingMessages > 0 ? (
+                    <span className="text-primary font-medium">
+                      {remainingMessages} free messages, login for more
+                    </span>
+                  ) : (
+                    <span className="text-destructive font-medium">
+                      Message limit reached
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </SignedOut>
