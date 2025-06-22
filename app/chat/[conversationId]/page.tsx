@@ -47,13 +47,11 @@ export default function ChatPage() {
           <AppHeader />
         </header>
         <div className="flex-1 p-4 overflow-hidden">
-          <div
-            className={`h-full grid auto-rows-fr gap-4 md:grid-cols-${SUPPORTED_MODELS.length}`}
-          >
+          <div className="h-full grid grid-rows-1 gap-4 md:grid-cols-2">
             {SUPPORTED_MODELS.map((model, idx) => (
               <ModelCard
                 key={model}
-                model={model} // <-- Pass this!
+                model={model}
                 conversationId={conversationId}
                 initialMessages={messagesByModel[model] ?? []}
                 sharedInput={sharedInput}

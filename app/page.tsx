@@ -37,9 +37,7 @@ export default function Page() {
           <AppHeader />
         </header>
         <div className="flex-1 p-4 overflow-hidden">
-          {/* <div
-            className={`h-full grid auto-rows-fr gap-4 md:grid-cols-${CARD_COUNT}`}
-          >
+          {/* <div className="h-full grid grid-rows-1 gap-4 md:grid-cols-3">
             {[...Array(CARD_COUNT)].map((_, idx) => (
               <ModelCard
                 key={idx}

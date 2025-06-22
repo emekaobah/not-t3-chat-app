@@ -154,10 +154,7 @@ export function ModelCard({
   }, [isLoading, isUserScrolledUp]);
 
   return (
-    <div
-      className="h-full flex flex-col border rounded-lg w-full min-w-[400px] max-w-[600px]"
-      style={{ minHeight: "100%" }}
-    >
+    <div className="h-full flex flex-col border rounded-lg w-full min-w-[400px] max-w-[600px]">
       <CardHeader className="p-4 flex flex-row items-center justify-between shrink-0">
         <ModelSelector value={selectedModel} onChange={setSelectedModel} />
         <ModelConfig
