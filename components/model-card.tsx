@@ -54,8 +54,8 @@ export function ModelCard({
   totalCards,
   isGuestMode = false, // Default to false for signed-in users
 }: Props) {
-  // Each card tracks its own selected model!
-  const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
+  // Each card tracks its own selected model, initialized from the model prop
+  const [selectedModel, setSelectedModel] = useState(model || DEFAULT_MODEL);
   const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -90,6 +90,13 @@ export function ModelCard({
       }
     },
   });
+
+  // Sync selectedModel when model prop changes (for loaded conversations)
+  useEffect(() => {
+    if (model && model !== selectedModel) {
+      setSelectedModel(model);
+    }
+  }, [model, selectedModel]);
 
   // On submitSignal, send sharedInput to THIS card's selected model
   useEffect(() => {
