@@ -17,6 +17,12 @@ import { toast } from "sonner";
 
 const SUPPORTED_MODELS = ["gpt-4.1-nano", "gemini-2.0-flash"];
 
+interface CardConfig {
+  id: string;
+  model: string;
+  position: number;
+}
+
 export default function ChatPage() {
   const { conversationId } = useParams<{ conversationId: string }>();
   const { messages, isLoading, refetch } = useMessages(conversationId);
@@ -30,6 +36,15 @@ export default function ChatPage() {
     setTitleGenerated,
     refreshConversations,
   } = useConversationStore();
+
+  // Card configuration state - manages card positions and models
+  const [cardConfigs, setCardConfigs] = useState<CardConfig[]>(() =>
+    SUPPORTED_MODELS.map((model, idx) => ({
+      id: `card-${idx}`,
+      model: model,
+      position: idx,
+    }))
+  );
 
   // Shared prompt input state (keeps in sync, but not shown as a UI at the top)
   const [sharedInput, setSharedInput] = useState("");
@@ -123,12 +138,51 @@ export default function ChatPage() {
     {}
   );
 
+  // Card management functions
+  const moveCard = (cardId: string, direction: "left" | "right") => {
+    setCardConfigs((prev) => {
+      const card = prev.find((c) => c.id === cardId);
+      if (!card) return prev;
+
+      const targetPosition =
+        direction === "left" ? card.position - 1 : card.position + 1;
+
+      // Find card at target position
+      const targetCard = prev.find((c) => c.position === targetPosition);
+
+      if (targetCard) {
+        // Swap positions
+        return prev.map((c) =>
+          c.id === cardId
+            ? { ...c, position: targetPosition }
+            : c.id === targetCard.id
+            ? { ...c, position: card.position }
+            : c
+        );
+      }
+      return prev;
+    });
+  };
+
+  const handleModelChange = (cardId: string, newModel: string) => {
+    setCardConfigs((prev) =>
+      prev.map((c) => (c.id === cardId ? { ...c, model: newModel } : c))
+    );
+  };
+
+  const getMessagesForCard = (cardConfig: CardConfig) => {
+    return messagesByModel[cardConfig.model] || [];
+  };
+
   // Submitting on any card triggers all cards to send the message
   const handleCardSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!sharedInput.trim()) return;
     setSubmitSignal((prev) => prev + 1);
   };
+
+  // Sort cards by position for rendering
+  const sortedCards = [...cardConfigs].sort((a, b) => a.position - b.position);
 
   return (
     <SidebarProvider>
@@ -140,12 +194,12 @@ export default function ChatPage() {
         </header>
         <div className="flex-1 p-4 overflow-hidden">
           <div className="h-full grid grid-rows-1 gap-4 md:grid-cols-2">
-            {SUPPORTED_MODELS.map((model, idx) => (
+            {sortedCards.map((cardConfig, idx) => (
               <ModelCard
-                key={model}
-                model={model}
+                key={cardConfig.id}
+                model={cardConfig.model}
                 conversationId={conversationId}
-                initialMessages={messagesByModel[model] ?? []}
+                initialMessages={getMessagesForCard(cardConfig)}
                 sharedInput={sharedInput}
                 onSharedInputChange={setSharedInput}
                 submitSignal={submitSignal}
@@ -154,8 +208,13 @@ export default function ChatPage() {
                   // Just refetch messages - title generation will be handled by useEffect
                   refetch();
                 }}
+                onModelChange={(model) =>
+                  handleModelChange(cardConfig.id, model)
+                }
+                onMoveLeft={() => moveCard(cardConfig.id, "left")}
+                onMoveRight={() => moveCard(cardConfig.id, "right")}
                 index={idx}
-                totalCards={SUPPORTED_MODELS.length}
+                totalCards={sortedCards.length}
                 isGuestMode={false} // This is always for signed-in users
               />
             ))}

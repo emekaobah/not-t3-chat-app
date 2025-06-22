@@ -31,6 +31,7 @@ interface Props {
   onMoveRight?: () => void;
   onClearChat?: () => void;
   onAddCard?: () => void;
+  onModelChange?: (model: string) => void;
   index: number;
   totalCards: number;
   isGuestMode?: boolean; // New prop to indicate guest mode
@@ -50,6 +51,7 @@ export function ModelCard({
   onMoveRight,
   onClearChat,
   onAddCard,
+  onModelChange,
   index,
   totalCards,
   isGuestMode = false, // Default to false for signed-in users
@@ -97,6 +99,12 @@ export function ModelCard({
       setSelectedModel(model);
     }
   }, [model, selectedModel]);
+
+  // Handle model selection changes
+  const handleModelSelection = (newModel: string) => {
+    setSelectedModel(newModel);
+    onModelChange?.(newModel);
+  };
 
   // On submitSignal, send sharedInput to THIS card's selected model
   useEffect(() => {
@@ -193,7 +201,7 @@ export function ModelCard({
   return (
     <div className="h-full flex flex-col border rounded-lg w-full min-w-[400px] max-w-[600px]">
       <CardHeader className="p-4 flex flex-row items-center justify-between shrink-0">
-        <ModelSelector value={selectedModel} onChange={setSelectedModel} />
+        <ModelSelector value={selectedModel} onChange={handleModelSelection} />
         <ModelConfig
           onDelete={onDelete}
           onMoveLeft={onMoveLeft}

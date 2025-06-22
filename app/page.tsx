@@ -22,6 +22,12 @@ import { toast } from "sonner";
 
 const SUPPORTED_MODELS = ["gpt-4.1-nano", "gemini-2.0-flash"];
 
+interface CardConfig {
+  id: string;
+  model: string;
+  position: number;
+}
+
 export default function Page() {
   const router = useRouter();
   const { user, isSignedIn } = useUser();
@@ -47,6 +53,15 @@ export default function Page() {
   // Guest conversation management
   const guestConversation = useGuestConversation();
 
+  // Card configuration state - manages card positions and models
+  const [cardConfigs, setCardConfigs] = useState<CardConfig[]>(() =>
+    SUPPORTED_MODELS.map((model, idx) => ({
+      id: `card-${idx}`,
+      model: model,
+      position: idx,
+    }))
+  );
+
   // Modal states
   const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [showLimitModal, setShowLimitModal] = useState(false);
@@ -55,7 +70,45 @@ export default function Page() {
 
   // Shared input state for guest users
   const [sharedInput, setSharedInput] = useState("");
-  const [submitSignal, setSubmitSignal] = useState(0); // Reset guest message count when user signs in, reinitialize when signs out
+  const [submitSignal, setSubmitSignal] = useState(0);
+
+  // Card management functions
+  const moveCard = (cardId: string, direction: "left" | "right") => {
+    setCardConfigs((prev) => {
+      const card = prev.find((c) => c.id === cardId);
+      if (!card) return prev;
+
+      const targetPosition =
+        direction === "left" ? card.position - 1 : card.position + 1;
+
+      // Find card at target position
+      const targetCard = prev.find((c) => c.position === targetPosition);
+
+      if (targetCard) {
+        // Swap positions
+        return prev.map((c) =>
+          c.id === cardId
+            ? { ...c, position: targetPosition }
+            : c.id === targetCard.id
+            ? { ...c, position: card.position }
+            : c
+        );
+      }
+      return prev;
+    });
+  };
+
+  const handleModelChange = (cardId: string, newModel: string) => {
+    setCardConfigs((prev) =>
+      prev.map((c) => (c.id === cardId ? { ...c, model: newModel } : c))
+    );
+  };
+
+  const getMessagesForCard = (cardConfig: CardConfig) => {
+    return messagesByModel[cardConfig.model] || [];
+  };
+
+  // Reset guest message count when user signs in, reinitialize when signs out
   useEffect(() => {
     if (isSignedIn) {
       console.log("🔄 User signed in, resetting guest message count");
@@ -373,6 +426,9 @@ export default function Page() {
     }
   };
 
+  // Sort cards by position for rendering
+  const sortedCards = [...cardConfigs].sort((a, b) => a.position - b.position);
+
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -400,12 +456,12 @@ export default function Page() {
           <SignedOut>
             {/* For signed-out users: show same chat interface but temporary with limits */}
             <div className="h-full grid grid-rows-1 gap-4 md:grid-cols-2">
-              {SUPPORTED_MODELS.map((model, idx) => (
+              {sortedCards.map((cardConfig, idx) => (
                 <ModelCard
-                  key={model}
-                  model={model}
+                  key={cardConfig.id}
+                  model={cardConfig.model}
                   conversationId="guest"
-                  initialMessages={messagesByModel[model] ?? []}
+                  initialMessages={getMessagesForCard(cardConfig)}
                   sharedInput={sharedInput}
                   onSharedInputChange={setSharedInput}
                   submitSignal={submitSignal}
@@ -413,8 +469,13 @@ export default function Page() {
                   onMessageSent={() => {
                     // Guest message handling is done in handleGuestCardSubmit
                   }}
+                  onModelChange={(model) =>
+                    handleModelChange(cardConfig.id, model)
+                  }
+                  onMoveLeft={() => moveCard(cardConfig.id, "left")}
+                  onMoveRight={() => moveCard(cardConfig.id, "right")}
                   index={idx}
-                  totalCards={SUPPORTED_MODELS.length}
+                  totalCards={sortedCards.length}
                   isGuestMode={true} // Guest users
                 />
               ))}
