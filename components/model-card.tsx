@@ -17,6 +17,12 @@ import { useGuestConversation } from "@/stores/guestConversationStore";
 
 const DEFAULT_MODEL = "gpt-4.1-nano";
 
+const MODEL_DISPLAY_NAMES = {
+  "gpt-4.1-nano": "GPT-4.1 Nano",
+  "gemini-2.0-flash": "Gemini 2.0 Flash",
+  "gemini-2.0-flash-lite-preview-02-05": "Gemini Flash Lite",
+};
+
 interface Props {
   model: string;
   conversationId: string;
@@ -31,10 +37,13 @@ interface Props {
   onMoveRight?: () => void;
   onClearChat?: () => void;
   onAddCard?: () => void;
+  onDeleteCard?: () => void;
   onModelChange?: (model: string) => void;
+  availableModels?: string[];
+  className?: string;
   index: number;
   totalCards: number;
-  isGuestMode?: boolean; // New prop to indicate guest mode
+  isGuestMode?: boolean;
 }
 
 export function ModelCard({
@@ -51,10 +60,12 @@ export function ModelCard({
   onMoveRight,
   onClearChat,
   onAddCard,
+  onDeleteCard,
   onModelChange,
+  availableModels = [],
   index,
   totalCards,
-  isGuestMode = false, // Default to false for signed-in users
+  isGuestMode = false,
 }: Props) {
   // Each card tracks its own selected model, initialized from the model prop
   const [selectedModel, setSelectedModel] = useState(model || DEFAULT_MODEL);
@@ -201,12 +212,17 @@ export function ModelCard({
   return (
     <div className="h-full flex flex-col border rounded-lg w-full min-w-[400px] max-w-[600px]">
       <CardHeader className="p-4 flex flex-row items-center justify-between shrink-0">
-        <ModelSelector value={selectedModel} onChange={handleModelSelection} />
+        <ModelSelector
+          value={selectedModel}
+          onChange={handleModelSelection}
+          excludeModels={availableModels}
+        />
         <ModelConfig
           onDelete={onDelete}
           onMoveLeft={onMoveLeft}
           onMoveRight={onMoveRight}
           onAddCard={onAddCard}
+          onDeleteCard={onDeleteCard}
           onClearChat={onClearChat}
           index={index}
           totalCards={totalCards}

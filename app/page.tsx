@@ -18,9 +18,20 @@ import { RestoreChatModal, MessageLimitModal } from "@/components/chat-modals";
 import { useSendMessage } from "@/hooks/useSendMessage";
 import { useGenerateTitle } from "@/hooks/useGenerateTitle";
 import { useConversationStore } from "@/stores/conversationStore";
+import { useCardLayout } from "@/hooks/useCardLayout";
 import { toast } from "sonner";
 
-const SUPPORTED_MODELS = ["gpt-4.1-nano", "gemini-2.0-flash"];
+const SUPPORTED_MODELS = [
+  "gpt-4.1-nano",
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-lite-preview-02-05",
+];
+
+const MODEL_DISPLAY_NAMES = {
+  "gpt-4.1-nano": "GPT-4.1 Nano",
+  "gemini-2.0-flash": "Gemini 2.0 Flash",
+  "gemini-2.0-flash-lite-preview-02-05": "Gemini Flash Lite",
+};
 
 interface CardConfig {
   id: string;
@@ -72,6 +83,9 @@ export default function Page() {
   const [sharedInput, setSharedInput] = useState("");
   const [submitSignal, setSubmitSignal] = useState(0);
 
+  // Dynamic layout for cards
+  const { layout, containerRef } = useCardLayout(cardConfigs.length);
+
   // Card management functions
   const moveCard = (cardId: string, direction: "left" | "right") => {
     setCardConfigs((prev) => {
@@ -98,7 +112,87 @@ export default function Page() {
     });
   };
 
+  // Helper function to get available models
+  const getAvailableModels = (currentCards: CardConfig[]) => {
+    const usedModels = currentCards.map((card) => card.model);
+    return SUPPORTED_MODELS.filter((model) => !usedModels.includes(model));
+  };
+
+  // Add card functionality
+  const addCard = () => {
+    const availableModels = getAvailableModels(cardConfigs);
+
+    if (availableModels.length === 0) {
+      toast.error("All models are already in use");
+      return;
+    }
+
+    if (cardConfigs.length >= 3) {
+      toast.error("Maximum 3 cards allowed");
+      return;
+    }
+
+    const newModel = availableModels[0];
+    const maxPosition = Math.max(...cardConfigs.map((c) => c.position));
+
+    setCardConfigs((prev) => [
+      ...prev,
+      {
+        id: `card-${Date.now()}`,
+        model: newModel,
+        position: maxPosition + 1,
+      },
+    ]);
+
+    toast.success(
+      `Added ${
+        MODEL_DISPLAY_NAMES[newModel as keyof typeof MODEL_DISPLAY_NAMES]
+      } card`
+    );
+  };
+
+  // Delete card functionality
+  const deleteCard = (cardId: string) => {
+    if (cardConfigs.length <= 2) {
+      toast.error("Minimum 2 cards required");
+      return;
+    }
+
+    const cardToDelete = cardConfigs.find((c) => c.id === cardId);
+    const modelName = cardToDelete
+      ? MODEL_DISPLAY_NAMES[
+          cardToDelete.model as keyof typeof MODEL_DISPLAY_NAMES
+        ]
+      : "Card";
+
+    setCardConfigs((prev) => {
+      const filtered = prev.filter((c) => c.id !== cardId);
+      // Reposition remaining cards to fill gaps
+      return filtered.map((card, idx) => ({
+        ...card,
+        position: idx,
+      }));
+    });
+
+    toast.success(`Removed ${modelName} card`);
+  };
+
+  // Handle model change with validation
   const handleModelChange = (cardId: string, newModel: string) => {
+    // Validation: ensure model isn't used by another card
+    const isModelTaken = cardConfigs.some(
+      (c) => c.id !== cardId && c.model === newModel
+    );
+
+    if (isModelTaken) {
+      toast.error(
+        `${
+          MODEL_DISPLAY_NAMES[newModel as keyof typeof MODEL_DISPLAY_NAMES]
+        } is already in use`
+      );
+      return;
+    }
+
     setCardConfigs((prev) =>
       prev.map((c) => (c.id === cardId ? { ...c, model: newModel } : c))
     );
@@ -455,7 +549,14 @@ export default function Page() {
         <div className="flex-1 p-4 overflow-hidden">
           <SignedOut>
             {/* For signed-out users: show same chat interface but temporary with limits */}
-            <div className="h-full grid grid-rows-1 gap-4 md:grid-cols-2">
+            <div
+              ref={containerRef}
+              className={
+                layout.type === "grid"
+                  ? "h-full grid grid-rows-1 gap-4 md:grid-cols-2"
+                  : "h-full flex gap-4 overflow-x-auto horizontal-scroll"
+              }
+            >
               {sortedCards.map((cardConfig, idx) => (
                 <ModelCard
                   key={cardConfig.id}
@@ -472,11 +573,21 @@ export default function Page() {
                   onModelChange={(model) =>
                     handleModelChange(cardConfig.id, model)
                   }
+                  onAddCard={addCard}
+                  onDeleteCard={() => deleteCard(cardConfig.id)}
                   onMoveLeft={() => moveCard(cardConfig.id, "left")}
                   onMoveRight={() => moveCard(cardConfig.id, "right")}
+                  availableModels={getAvailableModels(cardConfigs).filter(
+                    (m) => m !== cardConfig.model
+                  )}
                   index={idx}
                   totalCards={sortedCards.length}
                   isGuestMode={true} // Guest users
+                  className={
+                    layout.type === "flex-scroll"
+                      ? "flex-shrink-0 w-[400px]"
+                      : ""
+                  }
                 />
               ))}
             </div>

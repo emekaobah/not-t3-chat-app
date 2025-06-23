@@ -28,6 +28,7 @@ const ModelConfig = ({
   onMoveRight,
   onDelete,
   onAddCard,
+  onDeleteCard,
   onClearChat,
   index = 0,
   totalCards = 0,
@@ -36,6 +37,7 @@ const ModelConfig = ({
   onMoveRight?: () => void;
   onDelete?: () => void;
   onAddCard?: () => void;
+  onDeleteCard?: () => void;
   onClearChat?: () => void;
   index?: number;
   totalCards?: number;
@@ -108,41 +110,23 @@ const ModelConfig = ({
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant={"secondary"} size="icon" onClick={onDelete}>
+          <Button variant={"secondary"} size="icon" onClick={onDeleteCard}>
             <Trash />
           </Button>
         </TooltipTrigger>
         <TooltipContent>
-          <p>Delete chat</p>
+          <p>Delete card</p>
         </TooltipContent>
       </Tooltip>
 
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button
-            variant={"secondary"}
-            size="icon"
-            onClick={onAddCard}
-            disabled={totalCards >= 2}
-          >
+          <Button variant={"secondary"} size="icon" onClick={onAddCard}>
             <Plus />
           </Button>
         </TooltipTrigger>
         <TooltipContent>
-          <p>
-            {totalCards >= 2 ? "Maximum cards reached" : "Add model to compare"}
-          </p>
-        </TooltipContent>
-      </Tooltip>
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant={"secondary"} size="icon" onClick={onClearChat}>
-            <Eraser />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>Clear chat</p>
+          <p>Add model to compare</p>
         </TooltipContent>
       </Tooltip>
     </div>

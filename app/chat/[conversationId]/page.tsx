@@ -14,8 +14,19 @@ import { useConversation } from "@/hooks/useUserConversation";
 import { useConversationStore } from "@/stores/conversationStore";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { useCardLayout } from "@/hooks/useCardLayout";
 
-const SUPPORTED_MODELS = ["gpt-4.1-nano", "gemini-2.0-flash"];
+const SUPPORTED_MODELS = [
+  "gpt-4.1-nano",
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-lite-preview-02-05",
+];
+
+const MODEL_DISPLAY_NAMES = {
+  "gpt-4.1-nano": "GPT-4.1 Nano",
+  "gemini-2.0-flash": "Gemini 2.0 Flash",
+  "gemini-2.0-flash-lite-preview-02-05": "Gemini Flash Lite",
+};
 
 interface CardConfig {
   id: string;
@@ -164,7 +175,87 @@ export default function ChatPage() {
     });
   };
 
+  // Helper function to get available models
+  const getAvailableModels = (currentCards: CardConfig[]) => {
+    const usedModels = currentCards.map((card) => card.model);
+    return SUPPORTED_MODELS.filter((model) => !usedModels.includes(model));
+  };
+
+  // Add card functionality
+  const addCard = () => {
+    const availableModels = getAvailableModels(cardConfigs);
+
+    if (availableModels.length === 0) {
+      toast.error("All models are already in use");
+      return;
+    }
+
+    if (cardConfigs.length >= 3) {
+      toast.error("Maximum 3 cards allowed");
+      return;
+    }
+
+    const newModel = availableModels[0];
+    const maxPosition = Math.max(...cardConfigs.map((c) => c.position));
+
+    setCardConfigs((prev) => [
+      ...prev,
+      {
+        id: `card-${Date.now()}`,
+        model: newModel,
+        position: maxPosition + 1,
+      },
+    ]);
+
+    toast.success(
+      `Added ${
+        MODEL_DISPLAY_NAMES[newModel as keyof typeof MODEL_DISPLAY_NAMES]
+      } card`
+    );
+  };
+
+  // Delete card functionality
+  const deleteCard = (cardId: string) => {
+    if (cardConfigs.length <= 2) {
+      toast.error("Minimum 2 cards required");
+      return;
+    }
+
+    const cardToDelete = cardConfigs.find((c) => c.id === cardId);
+    const modelName = cardToDelete
+      ? MODEL_DISPLAY_NAMES[
+          cardToDelete.model as keyof typeof MODEL_DISPLAY_NAMES
+        ]
+      : "Card";
+
+    setCardConfigs((prev) => {
+      const filtered = prev.filter((c) => c.id !== cardId);
+      // Reposition remaining cards to fill gaps
+      return filtered.map((card, idx) => ({
+        ...card,
+        position: idx,
+      }));
+    });
+
+    toast.success(`Removed ${modelName} card`);
+  };
+
+  // Handle model change with validation
   const handleModelChange = (cardId: string, newModel: string) => {
+    // Validation: ensure model isn't used by another card
+    const isModelTaken = cardConfigs.some(
+      (c) => c.id !== cardId && c.model === newModel
+    );
+
+    if (isModelTaken) {
+      toast.error(
+        `${
+          MODEL_DISPLAY_NAMES[newModel as keyof typeof MODEL_DISPLAY_NAMES]
+        } is already in use`
+      );
+      return;
+    }
+
     setCardConfigs((prev) =>
       prev.map((c) => (c.id === cardId ? { ...c, model: newModel } : c))
     );
@@ -184,6 +275,20 @@ export default function ChatPage() {
   // Sort cards by position for rendering
   const sortedCards = [...cardConfigs].sort((a, b) => a.position - b.position);
 
+  // Use responsive layout hook
+  const { layout, containerRef } = useCardLayout(sortedCards.length);
+
+  // Dynamic layout classes based on layout type
+  const layoutClasses =
+    layout.type === "grid"
+      ? "grid grid-cols-1 md:grid-cols-2 gap-4"
+      : "flex gap-4 overflow-x-auto card-container";
+
+  const cardClasses =
+    layout.type === "grid"
+      ? "w-full min-w-[400px] max-w-[600px]"
+      : "flex-none w-[400px] min-w-[400px]";
+
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -193,13 +298,14 @@ export default function ChatPage() {
           <AppHeader />
         </header>
         <div className="flex-1 p-4 overflow-hidden">
-          <div className="h-full grid grid-rows-1 gap-4 md:grid-cols-2">
+          <div ref={containerRef} className={`h-full ${layoutClasses}`}>
             {sortedCards.map((cardConfig, idx) => (
               <ModelCard
                 key={cardConfig.id}
                 model={cardConfig.model}
                 conversationId={conversationId}
                 initialMessages={getMessagesForCard(cardConfig)}
+                className={cardClasses}
                 sharedInput={sharedInput}
                 onSharedInputChange={setSharedInput}
                 submitSignal={submitSignal}
@@ -211,8 +317,13 @@ export default function ChatPage() {
                 onModelChange={(model) =>
                   handleModelChange(cardConfig.id, model)
                 }
+                onAddCard={addCard}
+                onDeleteCard={() => deleteCard(cardConfig.id)}
                 onMoveLeft={() => moveCard(cardConfig.id, "left")}
                 onMoveRight={() => moveCard(cardConfig.id, "right")}
+                availableModels={getAvailableModels(cardConfigs).filter(
+                  (m) => m !== cardConfig.model
+                )}
                 index={idx}
                 totalCards={sortedCards.length}
                 isGuestMode={false} // This is always for signed-in users

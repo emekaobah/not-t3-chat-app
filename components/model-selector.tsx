@@ -20,19 +20,32 @@ import {
 } from "@/components/ui/popover";
 import { useEffect } from "react";
 
+const MODEL_DISPLAY_NAMES = {
+  "gpt-4.1-nano": "GPT-4.1 Nano",
+  "gemini-2.0-flash": "Gemini 2.0 Flash",
+  "gemini-2.0-flash-lite-preview-02-05": "Gemini Flash Lite",
+};
+
 export function ModelSelector({
   value,
   onChange,
+  excludeModels = [],
 }: {
   value: string;
   onChange: (v: string) => void;
+  excludeModels?: string[];
 }) {
   const [open, setOpen] = React.useState(false);
-  const frameworks = [
-    { value: "gpt-4.1-nano", label: "GPT-4.1 Nano" },
 
-    { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
-  ];
+  // Filter out excluded models (used by other cards)
+  const availableModels = Object.keys(MODEL_DISPLAY_NAMES).filter(
+    (model) => !excludeModels.includes(model)
+  );
+
+  const frameworks = availableModels.map((model) => ({
+    value: model,
+    label: MODEL_DISPLAY_NAMES[model as keyof typeof MODEL_DISPLAY_NAMES],
+  }));
 
   useEffect(() => {
     if (!value && frameworks.length) {
