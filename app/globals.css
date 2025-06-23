@@ -184,3 +184,12 @@
     display: none;
   }
 }
+
+/* Flexible card grid - ensures cards fill available space */
+.grid-cols-2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.grid-cols-2 > * {
+  min-width: 0; /* Prevent grid items from overflowing */
+}

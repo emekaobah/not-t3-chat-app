@@ -1,12 +1,4 @@
-import {
-  ArrowBigLeft,
-  ArrowBigRight,
-  ArrowRight,
-  Eraser,
-  Plus,
-  SlidersHorizontal,
-  Trash,
-} from "lucide-react";
+import { Eraser, Plus, SlidersHorizontal } from "lucide-react";
 import React from "react";
 import { Button } from "./ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
@@ -24,20 +16,14 @@ import { DropdownMenuCheckboxItemProps } from "@radix-ui/react-dropdown-menu";
 type Checked = DropdownMenuCheckboxItemProps["checked"];
 
 const ModelConfig = ({
-  onMoveLeft,
-  onMoveRight,
   onDelete,
   onAddCard,
-  onDeleteCard,
   onClearChat,
   index = 0,
   totalCards = 0,
 }: {
-  onMoveLeft?: () => void;
-  onMoveRight?: () => void;
   onDelete?: () => void;
   onAddCard?: () => void;
-  onDeleteCard?: () => void;
   onClearChat?: () => void;
   index?: number;
   totalCards?: number;
@@ -48,9 +34,19 @@ const ModelConfig = ({
   const [showPanel, setShowPanel] = React.useState<Checked>(false);
   return (
     <div className="flex flex-row gap-2">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant={"ghost"} size="icon" onClick={onAddCard}>
+            <Plus />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Add model to compare</p>
+        </TooltipContent>
+      </Tooltip>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="secondary" size="icon">
+          <Button variant="ghost" size="icon">
             <SlidersHorizontal />
           </Button>
         </DropdownMenuTrigger>
@@ -78,57 +74,6 @@ const ModelConfig = ({
           </DropdownMenuCheckboxItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant={"secondary"}
-            size="icon"
-            onClick={onMoveLeft}
-            disabled={index === 0}
-          >
-            <ArrowBigLeft />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>Move left</p>
-        </TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant={"secondary"}
-            size="icon"
-            onClick={onMoveRight}
-            disabled={index === totalCards - 1}
-          >
-            <ArrowBigRight />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>Move right</p>
-        </TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant={"secondary"} size="icon" onClick={onDeleteCard}>
-            <Trash />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>Delete card</p>
-        </TooltipContent>
-      </Tooltip>
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant={"secondary"} size="icon" onClick={onAddCard}>
-            <Plus />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>Add model to compare</p>
-        </TooltipContent>
-      </Tooltip>
     </div>
   );
 };

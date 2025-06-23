@@ -553,7 +553,7 @@ export default function Page() {
               ref={containerRef}
               className={
                 layout.type === "grid"
-                  ? "h-full grid grid-rows-1 gap-4 md:grid-cols-2"
+                  ? "h-full grid gap-4 grid-cols-2"
                   : "h-full flex gap-4 overflow-x-auto horizontal-scroll"
               }
             >

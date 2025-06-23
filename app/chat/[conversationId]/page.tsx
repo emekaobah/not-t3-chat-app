@@ -281,13 +281,13 @@ export default function ChatPage() {
   // Dynamic layout classes based on layout type
   const layoutClasses =
     layout.type === "grid"
-      ? "grid grid-cols-1 md:grid-cols-2 gap-4"
-      : "flex gap-4 overflow-x-auto card-container";
+      ? "grid grid-cols-2 gap-4"
+      : "flex gap-4 overflow-x-auto horizontal-scroll";
 
   const cardClasses =
     layout.type === "grid"
-      ? "w-full min-w-[400px] max-w-[600px]"
-      : "flex-none w-[400px] min-w-[400px]";
+      ? "w-full min-w-[350px]"
+      : "flex-shrink-0 w-[450px] min-w-[350px]";
 
   return (
     <SidebarProvider>

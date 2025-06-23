@@ -14,6 +14,14 @@ import { useSendMessage } from "@/hooks/useSendMessage";
 import { Message } from "@/hooks/useMessages";
 import { Button } from "@/components/ui/button";
 import { useGuestConversation } from "@/stores/guestConversationStore";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MoreVertical, ArrowLeft, ArrowRight, Trash } from "lucide-react";
 
 const DEFAULT_MODEL = "gpt-4.1-nano";
 
@@ -63,6 +71,7 @@ export function ModelCard({
   onDeleteCard,
   onModelChange,
   availableModels = [],
+  className,
   index,
   totalCards,
   isGuestMode = false,
@@ -210,23 +219,64 @@ export function ModelCard({
   }, [isLoading, isUserScrolledUp]);
 
   return (
-    <div className="h-full flex flex-col border rounded-lg w-full min-w-[400px] max-w-[600px]">
+    <div
+      className={`h-full flex flex-col border rounded-lg ${
+        className || "w-full min-w-[350px]"
+      }`}
+    >
       <CardHeader className="p-4 flex flex-row items-center justify-between shrink-0">
         <ModelSelector
           value={selectedModel}
           onChange={handleModelSelection}
           excludeModels={availableModels}
         />
-        <ModelConfig
-          onDelete={onDelete}
-          onMoveLeft={onMoveLeft}
-          onMoveRight={onMoveRight}
-          onAddCard={onAddCard}
-          onDeleteCard={onDeleteCard}
-          onClearChat={onClearChat}
-          index={index}
-          totalCards={totalCards}
-        />
+        <div className="flex items-center gap-2">
+          {/* Card Actions Dropdown */}
+
+          {/* Keep other ModelConfig buttons */}
+          <ModelConfig
+            onDelete={onDelete}
+            onAddCard={onAddCard}
+            onClearChat={onClearChat}
+            index={index}
+            totalCards={totalCards}
+            // Remove the move and delete props since they're now in dropdown
+          />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem
+                onClick={onMoveLeft}
+                disabled={index === 0}
+                className="cursor-pointer"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Move Left
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={onMoveRight}
+                disabled={index === totalCards - 1}
+                className="cursor-pointer"
+              >
+                <ArrowRight className="mr-2 h-4 w-4" />
+                Move Right
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={onDeleteCard}
+                className="cursor-pointer text-destructive focus:text-destructive"
+                disabled={totalCards <= 2}
+              >
+                <Trash className="mr-2 h-4 w-4" />
+                Delete Card
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </CardHeader>
       <CardContent
         className="flex-1 overflow-y-auto"
