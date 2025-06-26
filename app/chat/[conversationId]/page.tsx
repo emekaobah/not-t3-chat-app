@@ -11,7 +11,10 @@ import {
 import { useMessages } from "@/hooks/queries/useMessages";
 import { Message } from "@/lib/api/messages";
 import { useGenerateTitle } from "@/hooks/useGenerateTitle";
-import { useConversation } from "@/hooks/queries/useConversations";
+import {
+  useConversation,
+  useUpdateConversation,
+} from "@/hooks/queries/useConversations";
 import { useConversationStore } from "@/stores/conversationStore";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
@@ -44,6 +47,7 @@ export default function ChatPage() {
   } = useMessages(conversationId);
   const { data: conversation } = useConversation(conversationId);
   const { generateTitle, isGenerating: isTitleGenerating } = useGenerateTitle();
+  const updateConversation = useUpdateConversation();
 
   // Use conversation store for state management
   const { setTitleGenerating, setTitleGenerated } = useConversationStore();
@@ -78,23 +82,17 @@ export default function ChatPage() {
       const title = await generateTitle(messages);
       console.log("✅ Generated title:", title);
 
-      // Update the conversation title in the database
-      const response = await fetch(`/api/conversations/${conversationId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ title }),
+      // Update the conversation title using the mutation
+      await updateConversation.mutateAsync({
+        id: conversationId,
+        title: title,
       });
 
-      if (response.ok) {
-        console.log("💾 Title saved to database");
-        // Mark as generated
-        setTitleGenerated(conversationId, true);
-        toast.success("Chat title generated!");
-      } else {
-        throw new Error("Failed to save title");
-      }
+      console.log("💾 Title saved to database");
+      // Mark as generated
+      setTitleGenerated(conversationId, true);
+
+      toast.success("Chat title generated!");
     } catch (error) {
       console.error("❌ Failed to generate title:", error);
       // Don't show error toast as this is a background operation
