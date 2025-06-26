@@ -1,8 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, ChevronDown, ChevronsDown, ChevronsUpDown } from "lucide-react";
-
+import { Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,12 +18,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useEffect } from "react";
-
-const MODEL_DISPLAY_NAMES = {
-  "gpt-4.1-nano": "GPT-4.1 Nano",
-  "gemini-2.0-flash": "Gemini 2.0 Flash",
-  "gemini-2.0-flash-lite-preview-02-05": "Gemini Flash Lite",
-};
+import { useUserModels } from "@/hooks/useUserModels";
 
 export function ModelSelector({
   value,
@@ -36,15 +30,26 @@ export function ModelSelector({
   excludeModels?: string[];
 }) {
   const [open, setOpen] = React.useState(false);
+  const { models, isLoading } = useUserModels();
+
+  // Debug logging
+  console.log("ModelSelector - models:", models, "isLoading:", isLoading);
 
   // Filter out excluded models (used by other cards)
-  const availableModels = Object.keys(MODEL_DISPLAY_NAMES).filter(
-    (model) => !excludeModels.includes(model)
+  const availableModels = models.filter(
+    (model) => !excludeModels.includes(model.name)
+  );
+
+  console.log(
+    "ModelSelector - availableModels:",
+    availableModels,
+    "excludeModels:",
+    excludeModels
   );
 
   const frameworks = availableModels.map((model) => ({
-    value: model,
-    label: MODEL_DISPLAY_NAMES[model as keyof typeof MODEL_DISPLAY_NAMES],
+    value: model.name,
+    label: model.name, // Using model name directly as display name
   }));
 
   useEffect(() => {
@@ -53,7 +58,17 @@ export function ModelSelector({
     }
     // Only run on mount or frameworks change
     // eslint-disable-next-line
-  }, []);
+  }, [frameworks.length]);
+
+  if (isLoading) {
+    return (
+      <Button variant="outline" disabled className="w-[200px] justify-between">
+        Loading models...
+        <ChevronDown className="opacity-50" />
+      </Button>
+    );
+  }
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>

@@ -19,19 +19,8 @@ import { useSendMessage } from "@/hooks/useSendMessage";
 import { useGenerateTitle } from "@/hooks/useGenerateTitle";
 import { useConversationStore } from "@/stores/conversationStore";
 import { useCardLayout } from "@/hooks/useCardLayout";
+import { useUserModels } from "@/hooks/useUserModels";
 import { toast } from "sonner";
-
-const SUPPORTED_MODELS = [
-  "gpt-4.1-nano",
-  "gemini-2.0-flash",
-  "gemini-2.0-flash-lite-preview-02-05",
-];
-
-const MODEL_DISPLAY_NAMES = {
-  "gpt-4.1-nano": "GPT-4.1 Nano",
-  "gemini-2.0-flash": "Gemini 2.0 Flash",
-  "gemini-2.0-flash-lite-preview-02-05": "Gemini Flash Lite",
-};
 
 interface CardConfig {
   id: string;
@@ -40,6 +29,7 @@ interface CardConfig {
 }
 
 export default function Page() {
+  const { models, isLoading: modelsLoading } = useUserModels();
   const router = useRouter();
   const { user, isSignedIn } = useUser();
   const { createConversation } = useCreateConversation();
@@ -65,13 +55,19 @@ export default function Page() {
   const guestConversation = useGuestConversation();
 
   // Card configuration state - manages card positions and models
-  const [cardConfigs, setCardConfigs] = useState<CardConfig[]>(() =>
-    SUPPORTED_MODELS.map((model, idx) => ({
-      id: `card-${idx}`,
-      model: model,
-      position: idx,
-    }))
-  );
+  const [cardConfigs, setCardConfigs] = useState<CardConfig[]>([]);
+
+  // Initialize card configs when models are available
+  useEffect(() => {
+    if (models.length >= 2 && cardConfigs.length === 0) {
+      const initialConfigs = models.slice(0, 2).map((model, idx) => ({
+        id: `card-${idx}`,
+        model: model.name,
+        position: idx,
+      }));
+      setCardConfigs(initialConfigs);
+    }
+  }, [models, cardConfigs.length]);
 
   // Modal states
   const [showRestoreModal, setShowRestoreModal] = useState(false);
@@ -115,7 +111,7 @@ export default function Page() {
   // Helper function to get available models
   const getAvailableModels = (currentCards: CardConfig[]) => {
     const usedModels = currentCards.map((card) => card.model);
-    return SUPPORTED_MODELS.filter((model) => !usedModels.includes(model));
+    return models.filter((model) => !usedModels.includes(model.name));
   };
 
   // Add card functionality
@@ -139,16 +135,12 @@ export default function Page() {
       ...prev,
       {
         id: `card-${Date.now()}`,
-        model: newModel,
+        model: newModel.name,
         position: maxPosition + 1,
       },
     ]);
 
-    toast.success(
-      `Added ${
-        MODEL_DISPLAY_NAMES[newModel as keyof typeof MODEL_DISPLAY_NAMES]
-      } card`
-    );
+    toast.success(`Added ${newModel.name} card`);
   };
 
   // Delete card functionality
@@ -159,11 +151,7 @@ export default function Page() {
     }
 
     const cardToDelete = cardConfigs.find((c) => c.id === cardId);
-    const modelName = cardToDelete
-      ? MODEL_DISPLAY_NAMES[
-          cardToDelete.model as keyof typeof MODEL_DISPLAY_NAMES
-        ]
-      : "Card";
+    const modelName = cardToDelete ? cardToDelete.model : "Card";
 
     setCardConfigs((prev) => {
       const filtered = prev.filter((c) => c.id !== cardId);
@@ -185,11 +173,7 @@ export default function Page() {
     );
 
     if (isModelTaken) {
-      toast.error(
-        `${
-          MODEL_DISPLAY_NAMES[newModel as keyof typeof MODEL_DISPLAY_NAMES]
-        } is already in use`
-      );
+      toast.error(`${newModel} is already in use`);
       return;
     }
 
@@ -577,9 +561,9 @@ export default function Page() {
                   onDeleteCard={() => deleteCard(cardConfig.id)}
                   onMoveLeft={() => moveCard(cardConfig.id, "left")}
                   onMoveRight={() => moveCard(cardConfig.id, "right")}
-                  availableModels={getAvailableModels(cardConfigs).filter(
-                    (m) => m !== cardConfig.model
-                  )}
+                  availableModels={getAvailableModels(cardConfigs)
+                    .map((m) => m.name)
+                    .filter((modelName) => modelName !== cardConfig.model)}
                   index={idx}
                   totalCards={sortedCards.length}
                   isGuestMode={true} // Guest users
