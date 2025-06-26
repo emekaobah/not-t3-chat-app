@@ -1,12 +1,5 @@
 import { create } from "zustand";
 
-interface Conversation {
-  id: string;
-  title: string;
-  created_at: string;
-  user_id: string;
-}
-
 interface TitleGenerationState {
   [conversationId: string]: {
     isGenerating: boolean;
@@ -14,54 +7,18 @@ interface TitleGenerationState {
   };
 }
 
-interface ConversationStore {
-  // State
-  conversations: Conversation[];
-  isLoading: boolean;
+interface ConversationUIStore {
+  // Remove server state, keep only UI state
   titleStates: TitleGenerationState;
 
-  // Actions
-  setConversations: (conversations: Conversation[]) => void;
-  setLoading: (loading: boolean) => void;
-  addConversation: (conversation: Conversation) => void;
-  removeConversation: (conversationId: string) => void;
-  updateConversationTitle: (conversationId: string, title: string) => void;
+  // UI Actions only
   setTitleGenerating: (conversationId: string, isGenerating: boolean) => void;
   setTitleGenerated: (conversationId: string, hasGenerated: boolean) => void;
-  refreshConversations: () => Promise<void>;
 }
 
-export const useConversationStore = create<ConversationStore>((set, get) => ({
-  // Initial state
-  conversations: [],
-  isLoading: false,
+export const useConversationUIStore = create<ConversationUIStore>((set) => ({
+  // Only UI state now
   titleStates: {},
-
-  // Actions
-  setConversations: (conversations) => set({ conversations }),
-
-  setLoading: (isLoading) => set({ isLoading }),
-
-  addConversation: (conversation) => {
-    const { conversations } = get();
-    set({ conversations: [conversation, ...conversations] });
-  },
-
-  removeConversation: (conversationId) => {
-    const { conversations } = get();
-    const updatedConversations = conversations.filter(
-      (conv) => conv.id !== conversationId
-    );
-    set({ conversations: updatedConversations });
-  },
-
-  updateConversationTitle: (conversationId, title) => {
-    const { conversations } = get();
-    const updatedConversations = conversations.map((conv) =>
-      conv.id === conversationId ? { ...conv, title } : conv
-    );
-    set({ conversations: updatedConversations });
-  },
 
   setTitleGenerating: (conversationId, isGenerating) => {
     set((state) => ({
@@ -84,23 +41,12 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         [conversationId]: {
           ...state.titleStates[conversationId],
           hasGenerated,
-          isGenerating: false, // Always clear generating state when setting generated
+          isGenerating: false,
         },
       },
     }));
   },
-
-  refreshConversations: async () => {
-    set({ isLoading: true });
-    try {
-      console.log("🔄 Refreshing conversations...");
-      const res = await fetch("/api/conversations");
-      const data = await res.json();
-      console.log("📝 Fetched conversations:", data?.length || 0);
-      set({ conversations: data || [], isLoading: false });
-    } catch (error) {
-      console.error("❌ Failed to fetch conversations:", error);
-      set({ isLoading: false });
-    }
-  },
 }));
+
+// Keep backward compatibility temporarily
+export const useConversationStore = useConversationUIStore;

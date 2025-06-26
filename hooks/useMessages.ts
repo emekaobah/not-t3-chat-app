@@ -1,31 +1,27 @@
-import { useEffect, useState } from "react";
+import { useMessages as useMessagesRQ } from "./queries/useMessages";
 
-export interface Message {
-  id: string;
-  conversation_id: string;
-  model: string;
-  role: "user" | "assistant" | "system" | "data"; // <--- updated
-  content: string;
-  created_at: string;
-}
+// Re-export Message type from API
+export type { Message } from "@/lib/api/messages";
 
+// Backward compatible wrapper
 export function useMessages(conversationId: string | undefined) {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const {
+    data: messages = [],
+    isLoading,
+    refetch,
+  } = useMessagesRQ(conversationId);
 
-  const fetchMessages = async () => {
-    if (!conversationId) return;
-    setIsLoading(true);
-    const res = await fetch(`/api/messages?conversation_id=${conversationId}`);
-    const data = await res.json();
-    setMessages(data || []);
-    setIsLoading(false);
+  return {
+    messages,
+    isLoading,
+    refetch: async () => {
+      await refetch();
+    },
   };
-
-  useEffect(() => {
-    fetchMessages();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversationId]);
-
-  return { messages, isLoading, refetch: fetchMessages };
 }
+
+// Export React Query version for new code
+export {
+  useMessages as useMessagesRQ,
+  useSendMessage,
+} from "./queries/useMessages";

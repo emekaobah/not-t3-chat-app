@@ -19,6 +19,7 @@ import { Button } from "./ui/button";
 import { Plus, MoreHorizontal, Edit2, Trash2 } from "lucide-react";
 import { Separator } from "./ui/separator";
 import { useUserConversations } from "@/hooks/useUserConversation";
+import { useConversations } from "@/hooks/queries/useConversations";
 import { useGuestMessageLimiter } from "@/stores/guestMessageStore";
 import { useGuestConversation } from "@/stores/guestConversationStore";
 import { useConversationStore } from "@/stores/conversationStore";
@@ -43,16 +44,15 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
 export function AppSidebar(props: any) {
-  // Use conversation store for real-time updates
+  // Use React Query for conversations data
   const {
-    conversations,
+    data: conversations = [],
     isLoading,
-    titleStates,
-    addConversation,
-    removeConversation,
-    updateConversationTitle,
-    refreshConversations,
-  } = useConversationStore();
+    refetch: refetchConversations,
+  } = useConversations();
+
+  // Use conversation store only for UI state (title generation)
+  const { titleStates } = useConversationStore();
 
   // Get the current conversationId from the URL
   const { conversationId } = useParams<{ conversationId: string }>();
@@ -83,8 +83,8 @@ export function AppSidebar(props: any) {
 
   // Initialize conversations on mount
   React.useEffect(() => {
-    refreshConversations();
-  }, [refreshConversations]);
+    refetchConversations();
+  }, [refetchConversations]);
 
   // Keyboard shortcut for search (Cmd+K / Ctrl+K)
   React.useEffect(() => {
@@ -105,8 +105,7 @@ export function AppSidebar(props: any) {
       // Create new conversation with "Untitled" title initially
       const newConversation = await createConversation({ title: "Untitled" });
       if (newConversation?.id) {
-        // Add to store immediately for real-time UI update
-        addConversation(newConversation);
+        // React Query handles optimistic updates automatically
         // Navigate to the new conversation
         router.push(`/chat/${newConversation.id}`);
       }
@@ -162,8 +161,8 @@ export function AppSidebar(props: any) {
       });
 
       if (response.ok) {
-        // Update in store
-        updateConversationTitle(conversationId, editingTitle.trim());
+        // Refetch conversations to update the cache
+        refetchConversations();
         toast.success("Conversation renamed!");
       } else {
         throw new Error("Failed to rename conversation");
@@ -208,8 +207,8 @@ export function AppSidebar(props: any) {
       console.log("📡 Delete response status:", response.status);
 
       if (response.ok) {
-        // Remove from store immediately
-        removeConversation(conversationToDelete.id);
+        // Refetch conversations to update the cache
+        refetchConversations();
         toast.success("Conversation deleted!");
 
         // If we're currently viewing the deleted conversation, redirect to home

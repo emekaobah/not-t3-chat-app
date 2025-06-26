@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { SignedIn, SignedOut, useUser } from "@clerk/nextjs";
 import { useCreateConversation } from "@/hooks/useCreateConversation";
 import { Message } from "@/hooks/useMessages";
+import { useConversations } from "@/hooks/queries/useConversations";
 import { useGuestMessageLimiter } from "@/stores/guestMessageStore";
 import { useGuestConversation } from "@/stores/guestConversationStore";
 import { RestoreChatModal, MessageLimitModal } from "@/components/chat-modals";
@@ -36,8 +37,9 @@ export default function Page() {
   const sendMessage = useSendMessage();
   const { generateTitle, isGenerating: isTitleGenerating } = useGenerateTitle();
 
-  // Conversation store for checking existing conversations
-  const { conversations, refreshConversations } = useConversationStore();
+  // Use React Query for conversations instead of store
+  const { data: conversations = [], refetch: refetchConversations } =
+    useConversations();
 
   // Guest message limiting
   const {
@@ -226,9 +228,9 @@ export default function Page() {
   useEffect(() => {
     if (isSignedIn) {
       console.log("👤 User signed in, refreshing conversations");
-      refreshConversations();
+      refetchConversations();
     }
-  }, [isSignedIn, refreshConversations]);
+  }, [isSignedIn, refetchConversations]);
 
   // Redirect signed-in users to create a new conversation if they land on home page
   // BUT only if there's no guest conversation to restore AND no existing conversations

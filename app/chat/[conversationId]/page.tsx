@@ -41,12 +41,7 @@ export default function ChatPage() {
   const { generateTitle, isGenerating: isTitleGenerating } = useGenerateTitle();
 
   // Use conversation store for state management
-  const {
-    updateConversationTitle,
-    setTitleGenerating,
-    setTitleGenerated,
-    refreshConversations,
-  } = useConversationStore();
+  const { setTitleGenerating, setTitleGenerated } = useConversationStore();
 
   // Card configuration state - manages card positions and models
   const [cardConfigs, setCardConfigs] = useState<CardConfig[]>(() =>
@@ -89,12 +84,8 @@ export default function ChatPage() {
 
       if (response.ok) {
         console.log("💾 Title saved to database");
-        // Update the store with the new title
-        updateConversationTitle(conversationId, title);
         // Mark as generated
         setTitleGenerated(conversationId, true);
-        // Refresh conversations to ensure sidebar is updated
-        await refreshConversations();
         toast.success("Chat title generated!");
       } else {
         throw new Error("Failed to save title");
