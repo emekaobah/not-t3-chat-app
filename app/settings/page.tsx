@@ -1,121 +1,78 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ModeToggle } from "@/components/mode-toggle";
 import { ModelTypeSection } from "@/components/model-type-section";
 import { ModelPreferencesHeader } from "@/components/model-preferences-header";
-import { ModelConfig, GroupedModels } from "@/lib/models";
+import {
+  useGroupedUserModels,
+  useBulkUpdateModels,
+  useUpdateModelPreference,
+} from "@/hooks/queries/useModelPreferences";
 import { toast } from "sonner";
 
-interface ModelWithPreference extends ModelConfig {
-  isEnabled: boolean;
-}
-
-interface GroupedModelsWithPreferences {
-  text: ModelWithPreference[];
-  multimodal: ModelWithPreference[];
-  reasoning: ModelWithPreference[];
-  visual: ModelWithPreference[];
-}
-
 const SettingsPage = () => {
-  const [groupedModels, setGroupedModels] =
-    useState<GroupedModelsWithPreferences>({
-      text: [],
-      multimodal: [],
-      reasoning: [],
-      visual: [],
-    });
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
+  // Use React Query for data fetching
+  const {
+    data: groupedModels,
+    isLoading,
+    error,
+    refetch,
+  } = useGroupedUserModels();
+  const bulkUpdateMutation = useBulkUpdateModels();
+  const updateModelMutation = useUpdateModelPreference();
 
-  // Fetch user's model preferences
-  useEffect(() => {
-    fetchUserModels();
-  }, []);
+  // Handle error state
+  if (error) {
+    toast.error("Failed to load model preferences");
+  }
 
-  const fetchUserModels = async () => {
-    try {
-      setIsLoading(true);
-      const response = await fetch("/api/user-models?grouped=true");
-      if (!response.ok) throw new Error("Failed to fetch models");
-
-      const data: GroupedModelsWithPreferences = await response.json();
-      setGroupedModels(data);
-    } catch (error) {
-      console.error("Error fetching models:", error);
-      toast.error("Failed to load model preferences");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  // Handle individual model toggle
   const handleModelToggle = async (modelId: string, enabled: boolean) => {
     try {
-      setIsSaving(true);
-      const response = await fetch("/api/user-models", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ modelId, isEnabled: enabled }),
-      });
-
-      if (!response.ok) throw new Error("Failed to update preference");
-
-      // Update local state
-      setGroupedModels((prev) => {
-        const updated = { ...prev };
-        Object.keys(updated).forEach((type) => {
-          const typeKey = type as keyof GroupedModelsWithPreferences;
-          updated[typeKey] = updated[typeKey].map((model) =>
-            model.id === modelId ? { ...model, isEnabled: enabled } : model
-          );
-        });
-        return updated;
-      });
-
-      toast.success(`Model ${enabled ? "enabled" : "disabled"}`);
+      await updateModelMutation.mutateAsync({ modelId, isEnabled: enabled });
     } catch (error) {
       console.error("Error updating model preference:", error);
-      toast.error("Failed to update model preference");
-    } finally {
-      setIsSaving(false);
+      // Error handling is done in the mutation
     }
   };
 
-  const handleBulkAction = async (action: string) => {
+  // Bulk actions using React Query mutations
+  const handleBulkAction = async (
+    action: "recommended" | "reset" | "disable"
+  ) => {
     try {
-      setIsSaving(true);
-      const response = await fetch("/api/user-models/bulk", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ action }),
+      if (action === "recommended") {
+        // Use the API's built-in recommended logic
+        const response = await fetch("/api/user-models/bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "recommended" }),
+        });
+        if (!response.ok) throw new Error("Failed to set recommended models");
+        // Refetch to get updated data
+        refetch();
+        return;
+      }
+
+      if (!groupedModels) return;
+
+      // For disable and reset, we need to specify model IDs
+      const allModelIds = [
+        ...groupedModels.text.map((m) => m.id),
+        ...groupedModels.multimodal.map((m) => m.id),
+        ...groupedModels.reasoning.map((m) => m.id),
+        ...groupedModels.visual.map((m) => m.id),
+      ];
+
+      const isEnabled = action === "reset"; // reset = enable all, disable = disable all
+      await bulkUpdateMutation.mutateAsync({
+        modelIds: allModelIds,
+        isEnabled,
       });
-
-      if (!response.ok) throw new Error(`Failed to ${action} models`);
-
-      // Refresh data
-      await fetchUserModels();
-
-      const actionMap = {
-        recommended: "Selected recommended models",
-        reset: "Reset to default settings",
-        disable: "Disabled all models",
-      };
-
-      toast.success(
-        actionMap[action as keyof typeof actionMap] ||
-          `Bulk ${action} completed`
-      );
     } catch (error) {
       console.error(`Error with bulk ${action}:`, error);
-      toast.error(`Failed to ${action} models`);
-    } finally {
-      setIsSaving(false);
+      // Error handling is done in the mutation
     }
   };
 
@@ -124,6 +81,8 @@ const SettingsPage = () => {
   };
 
   const getTotalCounts = () => {
+    if (!groupedModels) return { total: 0, enabled: 0 };
+
     const allModels = [
       ...groupedModels.text,
       ...groupedModels.multimodal,
@@ -181,19 +140,25 @@ const SettingsPage = () => {
             onUnselectAll={() => handleBulkAction("disable")}
             enabledCount={enabled}
             totalCount={total}
-            isLoading={isSaving}
+            isLoading={
+              bulkUpdateMutation.isPending || updateModelMutation.isPending
+            }
           />
 
           <div className="space-y-8">
-            {Object.entries(groupedModels).map(([type, models]) => (
-              <ModelTypeSection
-                key={type}
-                modelType={type}
-                models={models}
-                onToggle={handleModelToggle}
-                isLoading={isSaving}
-              />
-            ))}
+            {groupedModels &&
+              Object.entries(groupedModels).map(([type, models]) => (
+                <ModelTypeSection
+                  key={type}
+                  modelType={type}
+                  models={models}
+                  onToggle={handleModelToggle}
+                  isLoading={
+                    bulkUpdateMutation.isPending ||
+                    updateModelMutation.isPending
+                  }
+                />
+              ))}
           </div>
         </TabsContent>
 

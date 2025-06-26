@@ -11,7 +11,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { SignedIn, SignedOut, useUser } from "@clerk/nextjs";
 import { useCreateConversation } from "@/hooks/useCreateConversation";
-import { Message } from "@/hooks/useMessages";
+import { Message } from "@/lib/api/messages";
 import { useConversations } from "@/hooks/queries/useConversations";
 import { useGuestMessageLimiter } from "@/stores/guestMessageStore";
 import { useGuestConversation } from "@/stores/guestConversationStore";
@@ -20,7 +20,8 @@ import { useSendMessage } from "@/hooks/useSendMessage";
 import { useGenerateTitle } from "@/hooks/useGenerateTitle";
 import { useConversationStore } from "@/stores/conversationStore";
 import { useCardLayout } from "@/hooks/useCardLayout";
-import { useUserModels } from "@/hooks/useUserModels";
+import { useUserModels } from "@/hooks/queries/useUserModels";
+import { ModelConfig } from "@/lib/models";
 import { toast } from "sonner";
 
 interface CardConfig {
@@ -30,7 +31,7 @@ interface CardConfig {
 }
 
 export default function Page() {
-  const { models, isLoading: modelsLoading } = useUserModels();
+  const { data: models = [], isLoading: modelsLoading } = useUserModels();
   const router = useRouter();
   const { user, isSignedIn } = useUser();
   const { createConversation } = useCreateConversation();
@@ -38,8 +39,11 @@ export default function Page() {
   const { generateTitle, isGenerating: isTitleGenerating } = useGenerateTitle();
 
   // Use React Query for conversations instead of store
-  const { data: conversations = [], refetch: refetchConversations } =
-    useConversations();
+  const {
+    data: conversations,
+    refetch: refetchConversations,
+    isLoading: conversationsLoading,
+  } = useConversations();
 
   // Guest message limiting
   const {
@@ -62,11 +66,13 @@ export default function Page() {
   // Initialize card configs when models are available
   useEffect(() => {
     if (models.length >= 2 && cardConfigs.length === 0) {
-      const initialConfigs = models.slice(0, 2).map((model, idx) => ({
-        id: `card-${idx}`,
-        model: model.name,
-        position: idx,
-      }));
+      const initialConfigs = models
+        .slice(0, 2)
+        .map((model: ModelConfig, idx: number) => ({
+          id: `card-${idx}`,
+          model: model.name,
+          position: idx,
+        }));
       setCardConfigs(initialConfigs);
     }
   }, [models, cardConfigs.length]);
@@ -76,6 +82,14 @@ export default function Page() {
   const [showLimitModal, setShowLimitModal] = useState(false);
   const [hasShownRestoreModal, setHasShownRestoreModal] = useState(false);
   const [isRestoringConversation, setIsRestoringConversation] = useState(false);
+
+  // State to prevent auto-redirect after manual navigation to home
+  const [preventAutoRedirect, setPreventAutoRedirect] = useState(false);
+  // State to track if we've already attempted to create a conversation
+  const [
+    hasAttemptedConversationCreation,
+    setHasAttemptedConversationCreation,
+  ] = useState(false);
 
   // Shared input state for guest users
   const [sharedInput, setSharedInput] = useState("");
@@ -113,7 +127,9 @@ export default function Page() {
   // Helper function to get available models
   const getAvailableModels = (currentCards: CardConfig[]) => {
     const usedModels = currentCards.map((card) => card.model);
-    return models.filter((model) => !usedModels.includes(model.name));
+    return models.filter(
+      (model: ModelConfig) => !usedModels.includes(model.name)
+    );
   };
 
   // Add card functionality
@@ -207,9 +223,6 @@ export default function Page() {
     }
   }, [isSignedIn, resetOnSignIn, forceReinitialize]);
 
-  // State to prevent auto-redirect after manual navigation to home
-  const [preventAutoRedirect, setPreventAutoRedirect] = useState(false);
-
   // Check if user manually navigated to home page (e.g., after deleting a conversation)
   useEffect(() => {
     // Check sessionStorage for deletion flag
@@ -227,7 +240,7 @@ export default function Page() {
   // Initialize conversations when user signs in
   useEffect(() => {
     if (isSignedIn) {
-      console.log("👤 User signed in, refreshing conversations");
+      console.log("� User signed in, refreshing conversations");
       refetchConversations();
     }
   }, [isSignedIn, refetchConversations]);
@@ -238,14 +251,17 @@ export default function Page() {
   useEffect(() => {
     // Only auto-redirect if user is signed in AND there's no guest conversation to restore
     // AND it's their first time AND they didn't manually navigate here
+    // AND we haven't already attempted to create a conversation (prevent loops)
     if (
       isSignedIn &&
       !guestConversation.hasActiveConversation &&
       !hasShownRestoreModal &&
       !preventAutoRedirect &&
-      conversations // Make sure conversations have been loaded
+      !hasAttemptedConversationCreation &&
+      !conversationsLoading && // Wait for conversations to load
+      conversations !== undefined // Make sure conversations have been loaded
     ) {
-      if (conversations.length > 0) {
+      if (conversations && conversations.length > 0) {
         console.log(
           "🔄 User has existing conversations, redirecting to most recent"
         );
@@ -256,14 +272,23 @@ export default function Page() {
         console.log(
           "🚀 New user with no conversations, creating first conversation"
         );
+        // Set flag immediately to prevent multiple creation attempts
+        setHasAttemptedConversationCreation(true);
+
         // No existing conversations, create a new one (first-time user experience)
         // Only if this is truly a first-time user (not someone who just deleted all their conversations)
         const createFirstConversation = async () => {
-          const newConversation = await createConversation({
-            title: "Untitled",
-          });
-          if (newConversation?.id) {
-            router.push(`/chat/${newConversation.id}`);
+          try {
+            const newConversation = await createConversation({
+              title: "Untitled",
+            });
+            if (newConversation?.id) {
+              router.push(`/chat/${newConversation.id}`);
+            }
+          } catch (error) {
+            console.error("Failed to create first conversation:", error);
+            // Reset the flag on error so user can try again
+            setHasAttemptedConversationCreation(false);
           }
         };
         createFirstConversation();
@@ -276,16 +301,40 @@ export default function Page() {
       console.log(
         "🚫 Auto-redirect prevented - user manually navigated to home"
       );
+    } else if (hasAttemptedConversationCreation) {
+      console.log("🔄 Already attempted conversation creation, skipping");
     }
   }, [
     isSignedIn,
     guestConversation.hasActiveConversation,
     hasShownRestoreModal,
     preventAutoRedirect,
-    conversations, // Use the conversations from the store
+    hasAttemptedConversationCreation,
+    conversationsLoading,
+    conversations, // This will trigger when conversations change, but we now have protection
     createConversation,
     router,
   ]);
+
+  // Reset conversation creation flag when user has conversations
+  useEffect(() => {
+    if (
+      conversations &&
+      conversations.length > 0 &&
+      hasAttemptedConversationCreation
+    ) {
+      console.log("🔄 User now has conversations, resetting creation flag");
+      setHasAttemptedConversationCreation(false);
+    }
+  }, [conversations, hasAttemptedConversationCreation]);
+
+  // Reset conversation creation flag when user signs out
+  useEffect(() => {
+    if (!isSignedIn && hasAttemptedConversationCreation) {
+      console.log("🔄 User signed out, resetting creation flag");
+      setHasAttemptedConversationCreation(false);
+    }
+  }, [isSignedIn, hasAttemptedConversationCreation]);
 
   // Check for guest conversation restoration after sign-in
   useEffect(() => {
@@ -564,8 +613,10 @@ export default function Page() {
                   onMoveLeft={() => moveCard(cardConfig.id, "left")}
                   onMoveRight={() => moveCard(cardConfig.id, "right")}
                   availableModels={getAvailableModels(cardConfigs)
-                    .map((m) => m.name)
-                    .filter((modelName) => modelName !== cardConfig.model)}
+                    .map((m: ModelConfig) => m.name)
+                    .filter(
+                      (modelName: string) => modelName !== cardConfig.model
+                    )}
                   index={idx}
                   totalCards={sortedCards.length}
                   isGuestMode={true} // Guest users

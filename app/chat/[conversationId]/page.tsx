@@ -8,9 +8,10 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { useMessages, Message } from "@/hooks/useMessages";
+import { useMessages } from "@/hooks/queries/useMessages";
+import { Message } from "@/lib/api/messages";
 import { useGenerateTitle } from "@/hooks/useGenerateTitle";
-import { useConversation } from "@/hooks/useUserConversation";
+import { useConversation } from "@/hooks/queries/useConversations";
 import { useConversationStore } from "@/stores/conversationStore";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
@@ -36,8 +37,12 @@ interface CardConfig {
 
 export default function ChatPage() {
   const { conversationId } = useParams<{ conversationId: string }>();
-  const { messages, isLoading, refetch } = useMessages(conversationId);
-  const { conversation } = useConversation(conversationId);
+  const {
+    data: messages = [],
+    isLoading,
+    refetch,
+  } = useMessages(conversationId);
+  const { data: conversation } = useConversation(conversationId);
   const { generateTitle, isGenerating: isTitleGenerating } = useGenerateTitle();
 
   // Use conversation store for state management
@@ -117,8 +122,10 @@ export default function ChatPage() {
     }
 
     // Check if we have at least one user message and one assistant message
-    const userMessages = messages.filter((m) => m.role === "user");
-    const assistantMessages = messages.filter((m) => m.role === "assistant");
+    const userMessages = messages.filter((m: Message) => m.role === "user");
+    const assistantMessages = messages.filter(
+      (m: Message) => m.role === "assistant"
+    );
 
     if (userMessages.length >= 1 && assistantMessages.length >= 1) {
       console.log(

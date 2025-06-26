@@ -18,8 +18,8 @@ import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
 import { Button } from "./ui/button";
 import { Plus, MoreHorizontal, Edit2, Trash2 } from "lucide-react";
 import { Separator } from "./ui/separator";
-import { useUserConversations } from "@/hooks/useUserConversation";
 import { useConversations } from "@/hooks/queries/useConversations";
+import { usePrefetchData } from "@/hooks/queries/usePrefetch";
 import { useGuestMessageLimiter } from "@/stores/guestMessageStore";
 import { useGuestConversation } from "@/stores/guestConversationStore";
 import { useConversationStore } from "@/stores/conversationStore";
@@ -62,6 +62,7 @@ export function AppSidebar(props: any) {
 
   // Add hooks for creating new conversations
   const { createConversation } = useCreateConversation();
+  const { prefetchConversationWithMessages } = usePrefetchData();
   const router = useRouter();
 
   // State for managing conversation actions
@@ -269,6 +270,8 @@ export function AppSidebar(props: any) {
   // Handle hover with slight delay to prevent flickering
   const handleMouseEnter = (convId: string) => {
     setHoveredConversationId(convId);
+    // Prefetch conversation data and messages for faster navigation
+    prefetchConversationWithMessages(convId);
   };
 
   const handleMouseLeave = () => {

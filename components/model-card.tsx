@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { ModelSelector } from "./model-selector";
 import ModelConfig from "./model-config";
 import { useSendMessage } from "@/hooks/useSendMessage";
-import { Message } from "@/hooks/useMessages";
+import { Message } from "@/lib/api/messages";
 import { Button } from "@/components/ui/button";
 import { useGuestConversation } from "@/stores/guestConversationStore";
 import {

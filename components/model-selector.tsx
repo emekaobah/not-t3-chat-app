@@ -18,7 +18,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useEffect } from "react";
-import { useUserModels } from "@/hooks/useUserModels";
+import { useUserModels } from "@/hooks/queries/useUserModels";
+import { ModelConfig } from "@/lib/models";
 
 export function ModelSelector({
   value,
@@ -30,14 +31,14 @@ export function ModelSelector({
   excludeModels?: string[];
 }) {
   const [open, setOpen] = React.useState(false);
-  const { models, isLoading } = useUserModels();
+  const { data: models = [], isLoading } = useUserModels();
 
   // Debug logging
   console.log("ModelSelector - models:", models, "isLoading:", isLoading);
 
   // Filter out excluded models (used by other cards)
   const availableModels = models.filter(
-    (model) => !excludeModels.includes(model.name)
+    (model: ModelConfig) => !excludeModels.includes(model.name)
   );
 
   console.log(
@@ -47,7 +48,7 @@ export function ModelSelector({
     excludeModels
   );
 
-  const frameworks = availableModels.map((model) => ({
+  const frameworks = availableModels.map((model: ModelConfig) => ({
     value: model.name,
     label: model.name, // Using model name directly as display name
   }));
@@ -79,7 +80,10 @@ export function ModelSelector({
           className="w-[200px] justify-between"
         >
           {value
-            ? frameworks.find((framework) => framework.value === value)?.label
+            ? frameworks.find(
+                (framework: { value: string; label: string }) =>
+                  framework.value === value
+              )?.label
             : "Select a model"}
           <ChevronDown className="opacity-50" />
         </Button>
@@ -90,7 +94,7 @@ export function ModelSelector({
           <CommandList>
             <CommandEmpty>No Model found.</CommandEmpty>
             <CommandGroup>
-              {frameworks.map((framework) => (
+              {frameworks.map((framework: { value: string; label: string }) => (
                 <CommandItem
                   key={framework.value}
                   value={framework.value}
